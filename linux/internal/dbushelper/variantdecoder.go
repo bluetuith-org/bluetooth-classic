@@ -31,13 +31,13 @@ var variantDecoder resolver
 
 // ConvertExt converts a variant struct into an encodable value.
 // Note: v is a pointer iff the registered extension type is a struct or array kind.
-func (v variantExt) ConvertExt(variant interface{}) interface{} {
+func (v variantExt) ConvertExt(variant any) any {
 	return variant.(*dbus.Variant).Value()
 }
 
 // UpdateExt decodes/updates an encoded value (src) to a new variant (dst).
 // Note: dst is always a pointer kind to the registered extension type.
-func (v variantExt) UpdateExt(dst, src interface{}) {
+func (v variantExt) UpdateExt(dst, src any) {
 	dst.(dbus.Variant).Store(src)
 }
 
@@ -45,7 +45,7 @@ func (v variantExt) UpdateExt(dst, src interface{}) {
 // Note that, for types "MacAddress" and "uuid.UUID", custom TextMarshaler
 // and TextUnmarshaler interfaces have been defined.
 func DecodeVariantMap(
-	variants map[string]dbus.Variant, data interface{},
+	variants map[string]dbus.Variant, data any,
 	checkProps ...string,
 ) error {
 	variantDecoder.Lock()
@@ -65,7 +65,7 @@ func DecodeVariantMap(
 	for key, value := range variants {
 		for _, prop := range checkProps {
 			if prop == key && value.Signature().Empty() {
-				return fmt.Errorf("No signature found for property '%s'", prop)
+				return fmt.Errorf("no signature found for property '%s'", prop)
 			}
 		}
 	}

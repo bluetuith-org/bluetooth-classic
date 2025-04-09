@@ -375,13 +375,13 @@ func (n *Network) check() error {
 }
 
 // toMap returns a connection setting as a map.
-func (n connectionSettings) toMap() map[string]map[string]interface{} {
+func (n connectionSettings) toMap() map[string]map[string]any {
 	connType := n.ConnectionType.String()
 	name := fmt.Sprintf("%s Access Point (%s)",
 		n.Name, strings.ToUpper(connType),
 	)
 
-	settings := map[string]map[string]interface{}{
+	settings := map[string]map[string]any{
 		"connection": {
 			"id":          name,
 			"type":        "bluetooth",
@@ -395,7 +395,7 @@ func (n connectionSettings) toMap() map[string]map[string]interface{} {
 	}
 
 	if n.ConnectionType == bluetooth.NetworkDun {
-		settings["gsm"] = map[string]interface{}{
+		settings["gsm"] = map[string]any{
 			"apn":    n.APN,
 			"number": n.Number,
 		}

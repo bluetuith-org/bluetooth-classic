@@ -202,7 +202,7 @@ func (b *agent) AuthorizeService(devicePath dbus.ObjectPath, uuidstr string) *db
 
 // Cancel is called when the Bluez agent request was cancelled.
 func (b *agent) Cancel() *dbus.Error {
-	b.Cancel()
+	b.ctx.Cancel()
 
 	return nil
 }
@@ -216,7 +216,7 @@ func (b *agent) Release() *dbus.Error {
 // to the bluez DBus interface, and registers the agent.
 func setupAgent(systemBus *dbus.Conn, authHandler bluetooth.SessionAuthorizer, authTimeout time.Duration) error {
 	if authHandler == nil {
-		return errors.New("No authorization handler interface specified")
+		return errors.New("no authorization handler interface specified")
 	}
 
 	ag := agent{
@@ -269,6 +269,6 @@ func removeAgent() error {
 }
 
 // callAgentManager calls the AgentManager1 interface with the provided arguments.
-func (b *agent) callAgentManager(method string, args ...interface{}) *dbus.Call {
+func (b *agent) callAgentManager(method string, args ...any) *dbus.Call {
 	return b.systemBus.Object(dbh.BluezBusName, dbh.BluezAgentManagerPath).Call(dbh.BluezAgentManagerIface+"."+method, 0, args...)
 }

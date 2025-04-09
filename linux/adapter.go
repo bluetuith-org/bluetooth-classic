@@ -201,7 +201,7 @@ func (a *adapter) check() (bluetooth.AdapterData, error) {
 
 // callAdapter is used to interact with the bluez Adapter dbus interface.
 // https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/doc/adapter-api.txt
-func (a *adapter) callAdapter(method string, flags dbus.Flags, args ...interface{}) *dbus.Call {
+func (a *adapter) callAdapter(method string, flags dbus.Flags, args ...any) *dbus.Call {
 	return a.b.systemBus.Object(dbh.BluezBusName, a.path).
 		Call(dbh.BluezAdapterIface+"."+method, flags, args...)
 }
@@ -219,7 +219,7 @@ func (a *adapter) adapterProperties() (map[string]dbus.Variant, error) {
 }
 
 // setAdapterProperty can be used to set certain properties for a bluetooth adapter.
-func (a *adapter) setAdapterProperty(key string, value interface{}) error {
+func (a *adapter) setAdapterProperty(key string, value any) error {
 	return a.b.systemBus.Object(dbh.BluezBusName, a.path).Call(
 		dbh.DbusSetPropertiesIface, 0, dbh.BluezAdapterIface,
 		key, dbus.MakeVariant(value),

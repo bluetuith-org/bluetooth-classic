@@ -232,7 +232,7 @@ func (d *device) check() (bluetooth.DeviceData, error) {
 
 // callDevice is used to interact with the bluez Device dbus interface.
 // https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/doc/device-api.txt
-func (d *device) callDevice(method string, flags dbus.Flags, args ...interface{}) *dbus.Call {
+func (d *device) callDevice(method string, flags dbus.Flags, args ...any) *dbus.Call {
 	return d.b.systemBus.Object(dbh.BluezBusName, d.path).
 		Call(dbh.BluezDeviceIface+"."+method, flags, args...)
 }

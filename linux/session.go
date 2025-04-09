@@ -21,6 +21,7 @@ import (
 	nm "github.com/bluetuith-org/bluetooth-classic/linux/networkmanager"
 	"github.com/bluetuith-org/bluetooth-classic/linux/obex"
 	"github.com/godbus/dbus/v5"
+	"maps"
 )
 
 // BluezSession describes a Linux Bluez DBus session.
@@ -338,9 +339,7 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 					continue
 				}
 
-				for k, v := range values {
-					mergedPropertyMap[k] = v
-				}
+				maps.Copy(mergedPropertyMap, values)
 			}
 
 			switch iftype {

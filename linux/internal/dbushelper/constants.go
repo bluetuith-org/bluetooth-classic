@@ -2,7 +2,10 @@
 
 package dbushelper
 
-import "github.com/godbus/dbus/v5"
+import (
+	"github.com/godbus/dbus/v5"
+	"github.com/rs/xid"
+)
 
 // The DBus specific bus and property names.
 const (
@@ -27,7 +30,6 @@ const (
 	BluezAgentIface        = "org.bluez.Agent1"
 	BluezAgentManagerIface = "org.bluez.AgentManager1"
 	BluezAgentManagerPath  = dbus.ObjectPath("/org/bluez")
-	BluezAgentPath         = dbus.ObjectPath("/org/bluez/agent/bluerestd")
 
 	ObexBusName         = "org.bluez.obex"
 	ObexClientIface     = "org.bluez.obex.Client1"
@@ -41,3 +43,5 @@ const (
 	ObexAgentManagerPath  = dbus.ObjectPath("/org/bluez/obex")
 	ObexAgentPath         = dbus.ObjectPath("/org/bluez/obex/agent/bluerestd")
 )
+
+var BluezAgentPath = dbus.ObjectPath("/org/bluez/agent/blueagent-" + xid.New().String())

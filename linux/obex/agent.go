@@ -96,7 +96,7 @@ func (o *agent) AuthorizePush(transferPath dbus.ObjectPath) (string, *dbus.Error
 
 // Cancel is called when the OBEX agent request was cancelled.
 func (o *agent) Cancel() *dbus.Error {
-	o.Cancel()
+	o.ctx.Cancel()
 
 	return nil
 }
@@ -109,7 +109,7 @@ func (o *agent) Release() *dbus.Error {
 // setupAgent sets up an OBEX agent.
 func setupAgent(sessionBus *dbus.Conn, authHandler bluetooth.AuthorizeReceiveFile, authTimeout time.Duration) error {
 	if authHandler == nil {
-		return errors.New("No authorization handler interface specified")
+		return errors.New("no authorization handler interface specified")
 	}
 
 	ag := agent{authHandler: authHandler}
@@ -159,7 +159,7 @@ func removeAgent() error {
 }
 
 // callObexAgentManager calls the OBEX AgentManager1 interface with the provided arguments.
-func (o *agent) callObexAgentManager(method string, args ...interface{}) *dbus.Call {
+func (o *agent) callObexAgentManager(method string, args ...any) *dbus.Call {
 	return o.SessionBus.Object(dbh.ObexBusName, dbh.ObexAgentManagerPath).
 		Call(dbh.ObexAgentManagerIface+"."+method, 0, args...)
 }
