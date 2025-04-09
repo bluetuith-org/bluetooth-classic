@@ -3,6 +3,9 @@ package bluetooth
 // MediaPlayer describes a function call interface to invoke media player/control
 // related functions on a device.
 type MediaPlayer interface {
+	AudioProfiles() ([]AudioProfile, error)
+	SetAudioProfile(profile AudioProfile) error
+
 	Properties() (MediaData, error)
 
 	Play() error
@@ -15,6 +18,21 @@ type MediaPlayer interface {
 	Rewind() error
 
 	Stop() error
+}
+
+// AudioProfile stores the device's audio profile information.
+type AudioProfile struct {
+	// Name holds the name of the audio profile.
+	Name string `json:"name,omitempty" codec:"Name,omitempty" doc:"Holds the name of the audio profile."`
+
+	// Description holds a brief description of the audio profile.
+	Description string `json:"description,omitempty" codec:"Description,omitempty" doc:"Holds a brief description of the audio profile."`
+
+	// Index holds the current position of the audio profile in the list.
+	Index uint32 `json:"index,omitempty" codec:"Index,omitempty" doc:"Holds the current position of the audio profile in the list."`
+
+	// Active specifies if the profile is active.
+	Active bool `json:"active,omitempty" codec:"Active,omitempty" doc:"Specifies if the profile is active."`
 }
 
 // MediaStatus indicates the status of the media player.
@@ -48,8 +66,7 @@ type MediaEventData struct {
 	MediaData
 }
 
-// TrackData describes the track properties of
-// the currently playing media.
+// TrackData describes the track properties of the currently playing media.
 type TrackData struct {
 	// Title holds the title name of the track.
 	Title string `json:"title,omitempty" codec:"Title,omitempty" doc:"The title name of the track."`

@@ -4,6 +4,7 @@ package linux
 
 import (
 	"context"
+	"errors"
 
 	"github.com/Southclaws/fault"
 	"github.com/Southclaws/fault/fctx"
@@ -13,6 +14,7 @@ import (
 	errorkinds "github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
 	dbh "github.com/bluetuith-org/bluetooth-classic/linux/internal/dbushelper"
 	"github.com/godbus/dbus/v5"
+	"github.com/mafik/pulseaudio"
 )
 
 // MediaPlayer describes a function call interface to invoke media control related
@@ -20,6 +22,100 @@ import (
 type MediaPlayer struct {
 	SystemBus *dbus.Conn
 	Address   bluetooth.MacAddress
+}
+
+func (m *MediaPlayer) AudioProfiles() ([]bluetooth.AudioProfile, error) {
+	var profiles []bluetooth.AudioProfile
+
+	client, err := pulseaudio.NewClient()
+	if err != nil {
+		return nil, fault.Wrap(
+			err,
+			fctx.With(context.Background(),
+				"error_at", "media-audio-profiles",
+				"address", m.Address.String(),
+			),
+			ftag.With(ftag.Internal),
+			fmsg.With("Cannot fetch audio profiles of device"),
+		)
+	}
+	defer client.Close()
+
+	cards, err := client.Cards()
+	if err != nil {
+		return nil, fault.Wrap(
+			err,
+			fctx.With(context.Background(),
+				"error_at", "media-audio-profiles",
+				"address", m.Address.String(),
+			),
+			ftag.With(ftag.Internal),
+			fmsg.With("Cannot fetch audio profiles of device"),
+		)
+	}
+
+	for _, card := range cards {
+		if addr, ok := card.PropList["device.string"]; ok {
+			if addr != m.Address.String() {
+				continue
+			}
+
+			for profileName, profile := range card.Profiles {
+				if profile.Available != 1 {
+					continue
+				}
+
+				profiles = append(profiles, bluetooth.AudioProfile{
+					Index:       card.Index,
+					Name:        profileName,
+					Description: profile.Description,
+					Active:      profile.Name == card.ActiveProfile.Name,
+				})
+			}
+
+			return profiles, nil
+		}
+	}
+
+	return nil, fault.Wrap(
+		errors.New("profile set empty"),
+		fctx.With(context.Background(),
+			"error_at", "media-audio-profiles",
+			"address", m.Address.String(),
+		),
+		ftag.With(ftag.Internal),
+		fmsg.With("Cannot fetch audio profiles of device"),
+	)
+}
+
+func (m *MediaPlayer) SetAudioProfile(profile bluetooth.AudioProfile) error {
+	client, err := pulseaudio.NewClient()
+	if err != nil {
+		return fault.Wrap(
+			err,
+			fctx.With(context.Background(),
+				"error_at", "media-audio-profiles-set",
+				"address", m.Address.String(),
+			),
+			ftag.With(ftag.Internal),
+			fmsg.With("Cannot set audio profile of device"),
+		)
+	}
+	defer client.Close()
+
+	if err := client.SetCardProfile(profile.Index, profile.Name); err != nil {
+		return fault.Wrap(
+			err,
+			fctx.With(context.Background(),
+				"error_at", "media-audio-profiles-set",
+				"address", m.Address.String(),
+			),
+			ftag.With(ftag.Internal),
+			fmsg.With("Cannot set audio profile of device"),
+		)
+	}
+
+	return nil
 }
 
 // Play starts the media playback.
@@ -332,8 +428,8 @@ func (m *MediaPlayer) mediaPlayerProperties(player dbus.ObjectPath) (map[string]
 }
 
 // mediaPlayerProperty gets the specified media player property.
-func (m *MediaPlayer) mediaPlayerProperty(player dbus.ObjectPath, property string) (interface{}, error) {
-	var result interface{}
+func (m *MediaPlayer) mediaPlayerProperty(player dbus.ObjectPath, property string) (any, error) {
+	var result any
 
 	if err := m.SystemBus.Object(dbh.BluezBusName, player).
 		Call(dbh.DbusGetPropertiesIface, 0, dbh.BluezMediaPlayerIface, property).

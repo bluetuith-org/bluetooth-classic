@@ -12,6 +12,14 @@ import (
 type mediaPlayer struct {
 }
 
+func (m *mediaPlayer) AudioProfiles() ([]bluetooth.AudioProfile, error) {
+	return nil, errorkinds.ErrNotSupported
+}
+
+func (m *mediaPlayer) SetAudioProfile(profile bluetooth.AudioProfile) error {
+	return errorkinds.ErrNotSupported
+}
+
 // Properties gets the media properties of the currently playing track.
 func (m *mediaPlayer) Properties() (bluetooth.MediaData, error) {
 	return bluetooth.MediaData{}, errorkinds.ErrNotSupported
