@@ -17,17 +17,28 @@ import (
 // Obex describes a Bluez Obex session.
 type Obex struct {
 	SessionBus *dbus.Conn
+	Address    bluetooth.MacAddress
+}
 
-	Address      bluetooth.MacAddress
-	DeviceExists func() error
+// ObexManager holds an OBEX session and agent.
+type ObexManager struct {
+	agent      *agent
+	sessionBus *dbus.Conn
+}
+
+// NewManager returns a new ObexManager.
+func NewManager(sessionBus *dbus.Conn) *ObexManager {
+	return &ObexManager{
+		sessionBus: sessionBus,
+	}
 }
 
 // Initialize attempts to initialize the Obex Agent, and returns the capabilities of the
 // obex session.
-func (o *Obex) Initialize(auth bluetooth.AuthorizeReceiveFile, authTimeout time.Duration) (ac.Features, *ac.Error) {
+func (o *ObexManager) Initialize(auth bluetooth.AuthorizeReceiveFile, authTimeout time.Duration) (ac.Features, *ac.Error) {
 	var capabilities ac.Features
 
-	serviceNames, err := dbh.ListActivatableBusNames(o.SessionBus)
+	serviceNames, err := dbh.ListActivatableBusNames(o.sessionBus)
 	if err != nil {
 		return capabilities,
 			ac.NewError(ac.FeatureSendFile|ac.FeatureReceiveFile, err)
@@ -49,7 +60,9 @@ SetupAgent:
 	go o.watchObexSystemBus()
 
 	capabilities = ac.FeatureSendFile
-	if err := setupAgent(o.SessionBus, auth, authTimeout); err != nil {
+
+	o.agent = newAgent(auth, authTimeout, &fileTransfer{SessionBus: o.sessionBus})
+	if err := o.agent.setup(); err != nil {
 		return capabilities,
 			ac.NewError(ac.FeatureReceiveFile, err)
 	}
@@ -59,9 +72,9 @@ SetupAgent:
 	return capabilities, nil
 }
 
-// Remove removes the obex agent and closes the obex session.
-func (o *Obex) Remove() error {
-	return removeAgent()
+// Stop removes the obex agent and closes the obex session.
+func (o *ObexManager) Stop() error {
+	return o.agent.remove()
 }
 
 // FileTransfer returns a function call interface to invoke device file transfer
@@ -71,12 +84,12 @@ func (o *Obex) FileTransfer() bluetooth.ObexFileTransfer {
 }
 
 // watchObexSystemBus will register a signal and watch for events from the OBEX DBus interface.
-func (o *Obex) watchObexSystemBus() {
+func (o *ObexManager) watchObexSystemBus() {
 	signalMatch := "type='signal', sender='org.bluez.obex'"
-	o.SessionBus.BusObject().Call("org.freedesktop.DBus.AddMatch", 0, signalMatch)
+	o.sessionBus.BusObject().Call("org.freedesktop.DBus.AddMatch", 0, signalMatch)
 
 	ch := make(chan *dbus.Signal, 1)
-	o.SessionBus.Signal(ch)
+	o.sessionBus.Signal(ch)
 
 	for signal := range ch {
 		o.parseSignalData(signal)
@@ -84,7 +97,7 @@ func (o *Obex) watchObexSystemBus() {
 }
 
 // parseSignalData parses OBEX DBus signal data.
-func (o *Obex) parseSignalData(signal *dbus.Signal) {
+func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 	// BUG: Handle session and transfer interfaces when files are received.
 	// BUG: dbh.DbusSignalPropertyAddedIface unhandled.
 	switch signal.Name {

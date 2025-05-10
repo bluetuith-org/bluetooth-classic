@@ -29,8 +29,10 @@ import (
 type BluezSession struct {
 	systemBus  *dbus.Conn
 	sessionBus *dbus.Conn
+	agent      *agent
 
-	netman *nm.NetManager
+	netman  *nm.NetManager
+	obexman *obex.ObexManager
 
 	store sstore.SessionStore
 }
@@ -85,7 +87,8 @@ func (b *BluezSession) Start(
 			)
 	}
 
-	if err := setupAgent(systemBus, authHandler, cfg.AuthTimeout); err != nil {
+	b.agent = newAgent(systemBus, authHandler, cfg.AuthTimeout)
+	if err := b.agent.setup(); err != nil {
 		return nil, platform,
 			fault.Wrap(err,
 				fctx.With(context.Background(), "error_at", "agent-initialize"),
@@ -100,7 +103,8 @@ func (b *BluezSession) Start(
 		ac.FeatureMediaPlayer,
 	)
 
-	obexcap, cerr := b.obex().Initialize(authHandler, cfg.AuthTimeout)
+	b.obexman = obex.NewManager(sessionBus)
+	obexcap, cerr := b.obexman.Initialize(authHandler, cfg.AuthTimeout)
 	if cerr != nil {
 		ce.Append(cerr)
 	}
@@ -121,7 +125,8 @@ func (b *BluezSession) Start(
 
 // Stop attempts to stop interfacing with the Bluez daemon.
 func (b *BluezSession) Stop() error {
-	_ = removeAgent()
+	_ = b.obexman.Stop()
+	_ = b.agent.remove()
 
 	if err := b.sessionBus.Close(); err != nil {
 		return fault.Wrap(err,
@@ -182,12 +187,6 @@ func (b *BluezSession) adapter(path dbus.ObjectPath) *adapter {
 // This is used primarily to initialize device objects.
 func (b *BluezSession) device(path dbus.ObjectPath) *device {
 	return &device{b: b, path: path}
-}
-
-// obex returns an obex-related function call interface for internal use.
-// This is used primarily to initialize obex objects.
-func (b *BluezSession) obex() *obex.Obex {
-	return &obex.Obex{SessionBus: b.sessionBus}
 }
 
 // mediaPlayer returns an mediaplayer-related function call interface for internal use.
@@ -435,7 +434,7 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 
 				adapter := bluetooth.AdapterEventData{Address: address}
 				b.store.RemoveAdapter(adapter.Address)
-				dbh.PathConverter.RemoveDbusPath(dbh.DbusPathAdapter, objectPath)
+				dbh.PathConverter.RemoveAdapterDbusPath(objectPath)
 
 				bluetooth.AdapterEvent(bluetooth.EventActionRemoved).PublishData(adapter)
 

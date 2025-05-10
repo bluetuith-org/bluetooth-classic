@@ -3,6 +3,8 @@
 package dbushelper
 
 import (
+	"path/filepath"
+
 	bluetooth "github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	"github.com/godbus/dbus/v5"
 	"github.com/puzpuzpuz/xsync/v3"
@@ -47,6 +49,25 @@ func (d *dbusPathConverter) AddDbusPath(pathType DbusPathType, path dbus.ObjectP
 // RemoveDbusPath removes a mapping of a Bluez DBus path and a Bluetooth address from the path converter.
 func (d *dbusPathConverter) RemoveDbusPath(pathType DbusPathType, path dbus.ObjectPath) {
 	d.paths.Delete(dbusPath{pathType: pathType, path: path})
+}
+
+// RemoveAdapterDbusPath removes mappings of a Bluez DBus adapter path and its associated devices.
+func (d *dbusPathConverter) RemoveAdapterDbusPath(path dbus.ObjectPath) {
+	_, ok := d.Address(DbusPathAdapter, path)
+	if !ok {
+		return
+	}
+
+	d.RemoveDbusPath(DbusPathAdapter, path)
+	d.paths.Range(func(p dbusPath, address bluetooth.MacAddress) bool {
+		if p.pathType != DbusPathDevice || filepath.Dir(string(p.path)) == string(p.path) {
+			return true
+		}
+
+		d.RemoveDbusPath(DbusPathDevice, p.path)
+
+		return true
+	})
 }
 
 // Address returns a Bluetooth address that is mapped to the provided Bluez DBus path.

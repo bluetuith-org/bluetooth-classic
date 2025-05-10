@@ -25,17 +25,67 @@ type agent struct {
 
 	initialized bool
 
-	fileTransfer
+	*fileTransfer
 }
 
-var obexAgent agent
+// newAgent returns a new OBEX agent.
+func newAgent(authHandler bluetooth.AuthorizeReceiveFile, authTimeout time.Duration, transferSession *fileTransfer) *agent {
+	return &agent{
+		authHandler:  authHandler,
+		authTimeout:  authTimeout,
+		fileTransfer: transferSession,
+	}
+}
+
+// setup sets up an OBEX agent.
+func (o *agent) setup() error {
+	if o.authHandler == nil {
+		return errors.New("no authorization handler interface specified")
+	}
+
+	err := o.SessionBus.Export(o, dbh.ObexAgentPath, dbh.ObexAgentIface)
+	if err != nil {
+		return err
+	}
+
+	node := &introspect.Node{
+		Interfaces: []introspect.Interface{
+			introspect.IntrospectData,
+			{
+				Name:    dbh.ObexAgentIface,
+				Methods: introspect.Methods(o),
+			},
+		},
+	}
+
+	if err := o.SessionBus.Export(
+		introspect.NewIntrospectable(node),
+		dbh.ObexAgentPath,
+		dbh.DbusIntrospectableIface,
+	); err != nil {
+		return err
+	}
+
+	if err := o.callObexAgentManager("RegisterAgent", dbh.ObexAgentPath).Store(); err != nil {
+		return err
+	}
+
+	o.initialized = true
+
+	return nil
+}
+
+// remove removes the OBEX agent.
+func (o *agent) remove() error {
+	if !o.initialized {
+		return nil
+	}
+
+	return o.callObexAgentManager("UnregisterAgent", dbh.ObexAgentPath).Store()
+}
 
 // AuthorizePush asks for confirmation before receiving a transfer from the host device.
 func (o *agent) AuthorizePush(transferPath dbus.ObjectPath) (string, *dbus.Error) {
-	if !o.initialized {
-		return "", nil
-	}
-
 	sessionPath := dbus.ObjectPath(filepath.Dir(string(transferPath)))
 
 	sessionProperty, err := o.sessionProperties(sessionPath)
@@ -104,58 +154,6 @@ func (o *agent) Cancel() *dbus.Error {
 // Release is called when the OBEX agent is unregistered.
 func (o *agent) Release() *dbus.Error {
 	return nil
-}
-
-// setupAgent sets up an OBEX agent.
-func setupAgent(sessionBus *dbus.Conn, authHandler bluetooth.AuthorizeReceiveFile, authTimeout time.Duration) error {
-	if authHandler == nil {
-		return errors.New("no authorization handler interface specified")
-	}
-
-	ag := agent{authHandler: authHandler}
-	ag.SessionBus = sessionBus
-
-	err := sessionBus.Export(ag, dbh.ObexAgentPath, dbh.ObexAgentIface)
-	if err != nil {
-		return err
-	}
-
-	node := &introspect.Node{
-		Interfaces: []introspect.Interface{
-			introspect.IntrospectData,
-			{
-				Name:    dbh.ObexAgentIface,
-				Methods: introspect.Methods(ag),
-			},
-		},
-	}
-
-	if err := sessionBus.Export(
-		introspect.NewIntrospectable(node),
-		dbh.ObexAgentPath,
-		dbh.DbusIntrospectableIface,
-	); err != nil {
-		return err
-	}
-
-	if err := ag.callObexAgentManager("RegisterAgent", dbh.ObexAgentPath).Store(); err != nil {
-		return err
-	}
-
-	ag.authTimeout = authTimeout
-
-	obexAgent = ag
-
-	return nil
-}
-
-// removeAgent removes the OBEX agent.
-func removeAgent() error {
-	if !obexAgent.initialized {
-		return nil
-	}
-
-	return obexAgent.callObexAgentManager("UnregisterAgent", dbh.ObexAgentPath).Store()
 }
 
 // callObexAgentManager calls the OBEX AgentManager1 interface with the provided arguments.

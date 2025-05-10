@@ -32,7 +32,62 @@ const (
 	agentPassKey uint32 = 1024
 )
 
-var bluezAgent agent
+// newAgent returns a new BlueZ agent.
+func newAgent(systemBus *dbus.Conn, authHandler bluetooth.SessionAuthorizer, authTimeout time.Duration) *agent {
+	return &agent{
+		systemBus:   systemBus,
+		authHandler: authHandler,
+		authTimeout: authTimeout,
+	}
+}
+
+// setup creates a new BluezAgent, exports all its methods
+// to the bluez DBus interface, and registers the agent.
+func (a *agent) setup() error {
+	if a.authHandler == nil {
+		return errors.New("no authorization handler interface specified")
+	}
+
+	err := a.systemBus.Export(a, dbh.BluezAgentPath, dbh.BluezAgentIface)
+	if err != nil {
+		return err
+	}
+
+	node := &introspect.Node{
+		Interfaces: []introspect.Interface{
+			introspect.IntrospectData,
+			{
+				Name:    dbh.BluezAgentIface,
+				Methods: introspect.Methods(a),
+			},
+		},
+	}
+
+	if err := a.systemBus.Export(introspect.NewIntrospectable(node), dbh.BluezAgentPath, dbh.DbusIntrospectableIface); err != nil {
+		return err
+	}
+
+	if err := a.callAgentManager("RegisterAgent", dbh.BluezAgentPath, "KeyboardDisplay").Store(); err != nil {
+		return err
+	}
+
+	if err := a.callAgentManager("RequestDefaultAgent", dbh.BluezAgentPath).Store(); err != nil {
+		return err
+	}
+
+	a.initialized = true
+
+	return nil
+}
+
+// remove removes the agent.
+func (a *agent) remove() error {
+	if !a.initialized {
+		return nil
+	}
+
+	return a.callAgentManager("UnregisterAgent", dbh.BluezAgentPath).Store()
+}
 
 // RequestPinCode returns a predefined pincode to the agent's pincode request.
 func (b *agent) RequestPinCode(_ dbus.ObjectPath) (string, *dbus.Error) {
@@ -46,10 +101,6 @@ func (b *agent) RequestPasskey(_ dbus.ObjectPath) (uint32, *dbus.Error) {
 
 // DisplayPinCode displays a pincode from the device via the agent.
 func (b *agent) DisplayPinCode(devicePath dbus.ObjectPath, pincode string) *dbus.Error {
-	if !b.initialized {
-		return nil
-	}
-
 	address, ok := dbh.PathConverter.Address(dbh.DbusPathDevice, devicePath)
 	if !ok {
 		dbh.PublishError(errors.New(string(devicePath)),
@@ -77,10 +128,6 @@ func (b *agent) DisplayPinCode(devicePath dbus.ObjectPath, pincode string) *dbus
 
 // DisplayPasskey displays a passkey from the device via the agent.
 func (b *agent) DisplayPasskey(devicePath dbus.ObjectPath, passkey uint32, entered uint16) *dbus.Error {
-	if !b.initialized {
-		return nil
-	}
-
 	address, ok := dbh.PathConverter.Address(dbh.DbusPathDevice, devicePath)
 	if !ok {
 		dbh.PublishError(errors.New(string(devicePath)),
@@ -108,10 +155,6 @@ func (b *agent) DisplayPasskey(devicePath dbus.ObjectPath, passkey uint32, enter
 
 // RequestConfirmation requests confirmation to pair with the device using the provided passkey.
 func (b *agent) RequestConfirmation(devicePath dbus.ObjectPath, passkey uint32) *dbus.Error {
-	if !b.initialized {
-		return nil
-	}
-
 	address, ok := dbh.PathConverter.Address(dbh.DbusPathDevice, devicePath)
 	if !ok {
 		dbh.PublishError(errors.New(string(devicePath)),
@@ -139,10 +182,6 @@ func (b *agent) RequestConfirmation(devicePath dbus.ObjectPath, passkey uint32) 
 
 // RequestAuthorization requests authorization to pair with a device.
 func (b *agent) RequestAuthorization(devicePath dbus.ObjectPath) *dbus.Error {
-	if !b.initialized {
-		return nil
-	}
-
 	address, ok := dbh.PathConverter.Address(dbh.DbusPathDevice, devicePath)
 	if !ok {
 		dbh.PublishError(errors.New(string(devicePath)),
@@ -170,10 +209,6 @@ func (b *agent) RequestAuthorization(devicePath dbus.ObjectPath) *dbus.Error {
 
 // AuthorizeService requests authorization of a Bluetooth service using its profile UUID.
 func (b *agent) AuthorizeService(devicePath dbus.ObjectPath, uuidstr string) *dbus.Error {
-	if !b.initialized {
-		return nil
-	}
-
 	address, ok := dbh.PathConverter.Address(dbh.DbusPathDevice, devicePath)
 	if !ok {
 		dbh.PublishError(errors.New(string(devicePath)),
@@ -210,62 +245,6 @@ func (b *agent) Cancel() *dbus.Error {
 // Release is called when the Bluez agent is unregistered.
 func (b *agent) Release() *dbus.Error {
 	return nil
-}
-
-// setupAgent creates a new BluezAgent, exports all its methods
-// to the bluez DBus interface, and registers the agent.
-func setupAgent(systemBus *dbus.Conn, authHandler bluetooth.SessionAuthorizer, authTimeout time.Duration) error {
-	if authHandler == nil {
-		return errors.New("no authorization handler interface specified")
-	}
-
-	ag := agent{
-		systemBus:   systemBus,
-		authHandler: authHandler,
-		initialized: true,
-	}
-
-	err := systemBus.Export(ag, dbh.BluezAgentPath, dbh.BluezAgentIface)
-	if err != nil {
-		return err
-	}
-
-	node := &introspect.Node{
-		Interfaces: []introspect.Interface{
-			introspect.IntrospectData,
-			{
-				Name:    dbh.BluezAgentIface,
-				Methods: introspect.Methods(ag),
-			},
-		},
-	}
-
-	if err := systemBus.Export(introspect.NewIntrospectable(node), dbh.BluezAgentPath, dbh.DbusIntrospectableIface); err != nil {
-		return err
-	}
-
-	if err := ag.callAgentManager("RegisterAgent", dbh.BluezAgentPath, "KeyboardDisplay").Store(); err != nil {
-		return err
-	}
-
-	if err := ag.callAgentManager("RequestDefaultAgent", dbh.BluezAgentPath).Store(); err != nil {
-		return err
-	}
-
-	ag.authTimeout = authTimeout
-
-	bluezAgent = ag
-
-	return nil
-}
-
-// removeAgent removes the agent.
-func removeAgent() error {
-	if !bluezAgent.initialized {
-		return nil
-	}
-
-	return bluezAgent.callAgentManager("UnregisterAgent", dbh.BluezAgentPath).Store()
 }
 
 // callAgentManager calls the AgentManager1 interface with the provided arguments.

@@ -37,7 +37,7 @@ func (o *fileTransfer) CreateSession(ctx context.Context) error {
 
 	var sessionPath dbus.ObjectPath
 
-	args := make(map[string]interface{}, 1)
+	args := make(map[string]any, 1)
 	args["Target"] = "opp"
 
 	session := o.callClientAsync(ctx, "CreateSession", o.Address.String(), args)
@@ -306,25 +306,25 @@ func (o *fileTransfer) check() error {
 }
 
 // callClient calls the Client1 interface with the provided method.
-func (o *fileTransfer) callClient(method string, args ...interface{}) *dbus.Call {
+func (o *fileTransfer) callClient(method string, args ...any) *dbus.Call {
 	return o.SessionBus.Object(dbh.ObexBusName, dbh.ObexBusPath).
 		Call(dbh.ObexClientIface+"."+method, 0, args...)
 }
 
 // callClientAsync calls the Client1 interface asynchronously with the provided method.
-func (o *fileTransfer) callClientAsync(ctx context.Context, method string, args ...interface{}) *dbus.Call {
+func (o *fileTransfer) callClientAsync(ctx context.Context, method string, args ...any) *dbus.Call {
 	return o.SessionBus.Object(dbh.ObexBusName, dbh.ObexBusPath).
 		GoWithContext(ctx, dbh.ObexClientIface+"."+method, 0, nil, args...)
 }
 
 // callObjectPush calls the ObjectPush1 interface with the provided method.
-func (o *fileTransfer) callObjectPush(sessionPath dbus.ObjectPath, method string, args ...interface{}) *dbus.Call {
+func (o *fileTransfer) callObjectPush(sessionPath dbus.ObjectPath, method string, args ...any) *dbus.Call {
 	return o.SessionBus.Object(dbh.ObexBusName, sessionPath).
 		Call(dbh.ObexObjectPushIface+"."+method, 0, args...)
 }
 
 // callTransfer calls the Transfer1 interface with the provided method.
-func (o *fileTransfer) callTransfer(transferPath dbus.ObjectPath, method string, args ...interface{}) *dbus.Call {
+func (o *fileTransfer) callTransfer(transferPath dbus.ObjectPath, method string, args ...any) *dbus.Call {
 	return o.SessionBus.Object(dbh.ObexBusName, transferPath).
 		Call(dbh.ObexTransferIface+"."+method, 0, args...)
 }
