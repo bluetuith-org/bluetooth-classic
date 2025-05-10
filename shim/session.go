@@ -151,7 +151,7 @@ func (s *ShimSession) Stop() error {
 }
 
 // Adapters returns a list of known adapters.
-func (s *ShimSession) Adapters() []bluetooth.AdapterData {
+func (s *ShimSession) Adapters() ([]bluetooth.AdapterData, error) {
 	return s.store.Adapters()
 }
 

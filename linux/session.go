@@ -21,6 +21,7 @@ import (
 	nm "github.com/bluetuith-org/bluetooth-classic/linux/networkmanager"
 	"github.com/bluetuith-org/bluetooth-classic/linux/obex"
 	"github.com/godbus/dbus/v5"
+	"maps"
 )
 
 // BluezSession describes a Linux Bluez DBus session.
@@ -112,6 +113,8 @@ func (b *BluezSession) Start(
 
 	capabilities.Add(obexcap, netcap)
 
+	go b.watchBluezSystemBus()
+
 	return ac.NewFeatureSet(capabilities, ce), platform, nil
 }
 
@@ -139,7 +142,7 @@ func (b *BluezSession) Stop() error {
 }
 
 // Adapters returns a list of known adapters.
-func (b *BluezSession) Adapters() []bluetooth.AdapterData {
+func (b *BluezSession) Adapters() ([]bluetooth.AdapterData, error) {
 	return b.store.Adapters()
 }
 
@@ -195,10 +198,6 @@ func (b *BluezSession) mediaPlayer() *mp.MediaPlayer {
 // refreshStore refreshes the global session store with adapter and device objects
 // that are retrieved from the Bluez DBus interface (system bus).
 func (b *BluezSession) refreshStore() error {
-	b.store.WaitInitialize()
-	go b.watchBluezSystemBus()
-	defer b.store.DoneInitialize()
-
 	objects := make(map[dbus.ObjectPath]map[string]map[string]dbus.Variant)
 	if err := b.systemBus.Object(dbh.BluezBusName, "/").
 		Call(dbh.DbusObjectManagerIface, 0).

@@ -1,6 +1,7 @@
 package sessionstore
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
@@ -31,7 +32,7 @@ func NewSessionStore() SessionStore {
 }
 
 // Adapters returns a list of adapters from the store.
-func (s *SessionStore) Adapters() []bluetooth.AdapterData {
+func (s *SessionStore) Adapters() ([]bluetooth.AdapterData, error) {
 	adapters := make([]bluetooth.AdapterData, 0, s.adapters.Size())
 
 	s.adapters.Range(func(_ bluetooth.MacAddress, adapter bluetooth.AdapterData) bool {
@@ -40,7 +41,11 @@ func (s *SessionStore) Adapters() []bluetooth.AdapterData {
 		return true
 	})
 
-	return adapters
+	if len(adapters) == 0 {
+		return nil, errors.New("no adapters found")
+	}
+
+	return adapters, nil
 }
 
 // Adapter returns an adapter which matches the provided address.

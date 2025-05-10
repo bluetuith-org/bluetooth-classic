@@ -17,7 +17,7 @@ type Session interface {
 	Stop() error
 
 	// Adapters returns a list of known adapters.
-	Adapters() []AdapterData
+	Adapters() ([]AdapterData, error)
 
 	// Adapter returns a function call interface to invoke adapter related functions.
 	Adapter(adapterAddress MacAddress) Adapter
