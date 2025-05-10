@@ -44,4 +44,4 @@ const (
 	ObexAgentPath         = dbus.ObjectPath("/org/bluez/obex/agent/bluerestd")
 )
 
-var BluezAgentPath = dbus.ObjectPath("/org/bluez/agent/blueagent-" + xid.New().String())
+var BluezAgentPath = dbus.ObjectPath("/org/bluez/agent/blueagent" + xid.New().String())
