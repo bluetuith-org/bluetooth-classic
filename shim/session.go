@@ -32,7 +32,7 @@ import (
 //
 //revive:disable
 type ShimSession struct {
-	features   ac.FeatureSet
+	features   *ac.FeatureSet
 	authorizer bluetooth.SessionAuthorizer
 
 	conn net.Conn
@@ -57,7 +57,7 @@ const socketName = "bh-shim.sock"
 // Start attempts to initialize a session with the system's Bluetooth daemon or service.
 // Upon complete initialization, it returns the session descriptor, and capabilities of
 // the application.
-func (s *ShimSession) Start(authHandler bluetooth.SessionAuthorizer, cfg config.Configuration) (ac.FeatureSet, platforminfo.PlatformInfo, error) {
+func (s *ShimSession) Start(authHandler bluetooth.SessionAuthorizer, cfg config.Configuration) (*ac.FeatureSet, platforminfo.PlatformInfo, error) {
 	var ce ac.Errors
 
 	platform := platforminfo.NewPlatformInfo("")
@@ -77,7 +77,7 @@ func (s *ShimSession) Start(authHandler bluetooth.SessionAuthorizer, cfg config.
 	if cfg.SocketPath == "" {
 		dir, err := os.UserCacheDir()
 		if err != nil {
-			return ac.NilFeatureSet(), platform,
+			return nil, platform,
 				fault.Wrap(err,
 					fctx.With(context.Background(), "error_at", "socket-dir"),
 					ftag.With(ftag.Internal),
@@ -91,7 +91,7 @@ func (s *ShimSession) Start(authHandler bluetooth.SessionAuthorizer, cfg config.
 	ctx := s.reset(false)
 
 	if err := s.startListener(ctx, cfg.SocketPath); err != nil {
-		return ac.NilFeatureSet(), platform,
+		return nil, platform,
 			fault.Wrap(errors.New(err.Error()),
 				fctx.With(context.Background(), "error_at", "listener-shim"),
 				ftag.With(ftag.Internal),
@@ -101,7 +101,7 @@ func (s *ShimSession) Start(authHandler bluetooth.SessionAuthorizer, cfg config.
 
 	features, err := commands.GetFeatureFlags().ExecuteWith(s.executor)
 	if err != nil {
-		return ac.NilFeatureSet(), platform,
+		return nil, platform,
 			fault.Wrap(err,
 				fctx.With(context.Background(), "error_at", "shim-features"),
 				ftag.With(ftag.Internal),
@@ -111,7 +111,7 @@ func (s *ShimSession) Start(authHandler bluetooth.SessionAuthorizer, cfg config.
 
 	platformInfo, err := commands.GetPlatformInfo().ExecuteWith(s.executor)
 	if err != nil {
-		return ac.NilFeatureSet(), platform,
+		return nil, platform,
 			fault.Wrap(err,
 				fctx.With(context.Background(), "error_at", "shim-features"),
 				ftag.With(ftag.Internal),
@@ -120,7 +120,7 @@ func (s *ShimSession) Start(authHandler bluetooth.SessionAuthorizer, cfg config.
 	}
 
 	if err := s.refreshStore(); err != nil {
-		return ac.NilFeatureSet(), platform,
+		return nil, platform,
 			fault.Wrap(err,
 				fctx.With(context.Background(), "error_at", "shim-features"),
 				ftag.With(ftag.Internal),
@@ -457,7 +457,7 @@ func (s *ShimSession) reset(isClosed bool) context.Context {
 	s.Lock()
 	defer s.Unlock()
 
-	s.features = ac.NilFeatureSet()
+	s.features = nil
 
 	s.sessionClosed.Store(isClosed)
 	if isClosed {

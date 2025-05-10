@@ -11,7 +11,7 @@ type Session interface {
 	// Start attempts to initialize a session with the system's Bluetooth daemon or service.
 	// Upon complete initialization, it returns the session descriptor, and capabilities of
 	// the application.
-	Start(authHandler SessionAuthorizer, cfg config.Configuration) (ac.FeatureSet, platforminfo.PlatformInfo, error)
+	Start(authHandler SessionAuthorizer, cfg config.Configuration) (*ac.FeatureSet, platforminfo.PlatformInfo, error)
 
 	// Stop attempts to stop a session with the system's Bluetooth daemon or service.
 	Stop() error

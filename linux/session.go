@@ -21,7 +21,6 @@ import (
 	nm "github.com/bluetuith-org/bluetooth-classic/linux/networkmanager"
 	"github.com/bluetuith-org/bluetooth-classic/linux/obex"
 	"github.com/godbus/dbus/v5"
-	"maps"
 )
 
 // BluezSession describes a Linux Bluez DBus session.
@@ -38,7 +37,7 @@ type BluezSession struct {
 func (b *BluezSession) Start(
 	authHandler bluetooth.SessionAuthorizer,
 	cfg config.Configuration,
-) (ac.FeatureSet, platforminfo.PlatformInfo, error) {
+) (*ac.FeatureSet, platforminfo.PlatformInfo, error) {
 
 	var capabilities ac.Features
 	var ce ac.Errors
@@ -51,7 +50,7 @@ func (b *BluezSession) Start(
 
 	systemBus, err := dbus.SystemBus()
 	if err != nil {
-		return ac.NilFeatureSet(), platform,
+		return nil, platform,
 			fault.Wrap(err,
 				fctx.With(context.Background(), "error_at", "start-systembus"),
 				ftag.With(ftag.Internal),
@@ -61,7 +60,7 @@ func (b *BluezSession) Start(
 
 	sessionBus, err := dbus.SessionBus()
 	if err != nil {
-		return ac.NilFeatureSet(), platform,
+		return nil, platform,
 			fault.Wrap(err,
 				fctx.With(context.Background(), "error_at", "start-sessionbus"),
 				ftag.With(ftag.Internal),
@@ -76,7 +75,7 @@ func (b *BluezSession) Start(
 	}
 
 	if err := b.refreshStore(); err != nil {
-		return ac.NilFeatureSet(), platform,
+		return nil, platform,
 			fault.Wrap(err,
 				fctx.With(context.Background(), "error_at", "refresh-sessionstore"),
 				ftag.With(ftag.Internal),
@@ -85,7 +84,7 @@ func (b *BluezSession) Start(
 	}
 
 	if err := setupAgent(systemBus, authHandler, cfg.AuthTimeout); err != nil {
-		return ac.NilFeatureSet(), platform,
+		return nil, platform,
 			fault.Wrap(err,
 				fctx.With(context.Background(), "error_at", "agent-initialize"),
 				ftag.With(ftag.Internal),
