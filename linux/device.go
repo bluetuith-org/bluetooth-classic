@@ -285,7 +285,7 @@ func (d *device) setDeviceProperty(devicePath dbus.ObjectPath, key string, value
 }
 
 // convertAndStoreObjects converts a map of dbus objects to a common DeviceData structure.
-func (d *device) convertAndStoreObjects(values map[string]dbus.Variant) error {
+func (d *device) convertAndStoreObjects(values map[string]dbus.Variant) (bluetooth.DeviceData, error) {
 	/*
 		org.bluez.Device1
 			Icon => dbus.Variant{sig:dbus.Signature{str:"s"}, value:"audio-card"}
@@ -310,7 +310,7 @@ func (d *device) convertAndStoreObjects(values map[string]dbus.Variant) error {
 	}{}
 
 	if err := dbh.DecodeVariantMap(values, &device, "Name", "Address"); err != nil {
-		return fault.Wrap(err,
+		return device.DeviceData, fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "device-map-decode",
 				"address", d.Address.String(),
@@ -322,7 +322,7 @@ func (d *device) convertAndStoreObjects(values map[string]dbus.Variant) error {
 
 	adapterMap, err := d.b.adapter(device.Adapter).adapterProperties()
 	if err != nil {
-		return fault.Wrap(errorkinds.ErrAdapterNotFound,
+		return device.DeviceData, fault.Wrap(errorkinds.ErrAdapterNotFound,
 			fctx.With(context.Background(),
 				"error_at", "device-adapter-map",
 				"address", d.Address.String(),
@@ -336,7 +336,7 @@ func (d *device) convertAndStoreObjects(values map[string]dbus.Variant) error {
 
 	adapterMac, err := bluetooth.ParseMAC(addr.Value().(string))
 	if err != nil {
-		return fault.Wrap(errorkinds.ErrPropertyDataParse,
+		return device.DeviceData, fault.Wrap(errorkinds.ErrPropertyDataParse,
 			fctx.With(context.Background(),
 				"error_at", "device-adapter-mac",
 				"address", d.Address.String(),
@@ -356,7 +356,7 @@ func (d *device) convertAndStoreObjects(values map[string]dbus.Variant) error {
 	dbh.PathConverter.AddDbusPath(dbh.DbusPathDevice, d.path, device.Address)
 	d.b.store.AddDevice(device.DeviceData)
 
-	return nil
+	return device.DeviceData, nil
 }
 
 // batteryPercentage gets the battery percentage of a device.

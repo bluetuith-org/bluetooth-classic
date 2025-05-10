@@ -62,11 +62,13 @@ func DecodeVariantMap(
 		variantDecoder.check = true
 	}
 
-	for key, value := range variants {
-		for _, prop := range checkProps {
-			if prop == key && value.Signature().Empty() {
-				return fmt.Errorf("no signature found for property '%s'", prop)
-			}
+	for _, prop := range checkProps {
+		value, ok := variants[prop]
+		if !ok {
+			continue
+		}
+		if value.Signature().Empty() {
+			return fmt.Errorf("no signature found for property '%s'", prop)
 		}
 	}
 

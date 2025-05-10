@@ -227,7 +227,7 @@ func (a *adapter) setAdapterProperty(key string, value any) error {
 }
 
 // convertAndStoreObjectseObjectseObjects converts a map of dbus objects to a common AdapterData structure.
-func (a *adapter) convertAndStoreObjects(values map[string]dbus.Variant) error {
+func (a *adapter) convertAndStoreObjects(values map[string]dbus.Variant) (bluetooth.AdapterData, error) {
 	/*
 		/org/bluez/hci0
 			org.bluez.Adapter1
@@ -248,7 +248,7 @@ func (a *adapter) convertAndStoreObjects(values map[string]dbus.Variant) error {
 	var adapter bluetooth.AdapterData
 
 	if err := dbh.DecodeVariantMap(values, &adapter, "Address"); err != nil {
-		return fault.Wrap(err,
+		return adapter, fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "adapter-map-decode",
 				"address", adapter.Address.String(),
@@ -263,5 +263,5 @@ func (a *adapter) convertAndStoreObjects(values map[string]dbus.Variant) error {
 
 	a.b.store.AddAdapter(adapter)
 
-	return nil
+	return adapter, nil
 }

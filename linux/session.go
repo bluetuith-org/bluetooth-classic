@@ -6,6 +6,8 @@ import (
 	"context"
 	"path/filepath"
 
+	"maps"
+
 	"github.com/Southclaws/fault"
 	"github.com/Southclaws/fault/fctx"
 	"github.com/Southclaws/fault/fmsg"
@@ -21,7 +23,6 @@ import (
 	nm "github.com/bluetuith-org/bluetooth-classic/linux/networkmanager"
 	"github.com/bluetuith-org/bluetooth-classic/linux/obex"
 	"github.com/godbus/dbus/v5"
-	"maps"
 )
 
 // BluezSession describes a Linux Bluez DBus session.
@@ -211,10 +212,10 @@ func (b *BluezSession) refreshStore() error {
 
 			switch iface {
 			case dbh.BluezAdapterIface:
-				err = b.adapter(path).convertAndStoreObjects(values)
+				_, err = b.adapter(path).convertAndStoreObjects(values)
 
 			case dbh.BluezDeviceIface:
-				err = b.device(path).convertAndStoreObjects(values)
+				_, err = b.device(path).convertAndStoreObjects(values)
 			}
 
 			if err != nil {
@@ -245,6 +246,10 @@ func (b *BluezSession) watchBluezSystemBus() {
 func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 	switch signal.Name {
 	case dbh.DbusSignalPropertyChangedIface:
+		if signal.Body != nil && len(signal.Body) < 2 {
+			return
+		}
+
 		objectInterfaceName, ok := signal.Body[0].(string)
 		if !ok {
 			return
@@ -312,7 +317,7 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 		}
 
 	case dbh.DbusSignalInterfacesAddedIface:
-		if len(signal.Body) != 2 {
+		if signal.Body != nil && len(signal.Body) < 2 {
 			return
 		}
 
@@ -342,9 +347,8 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 
 			switch iftype {
 			case dbh.BluezAdapterIface:
-				var adapter bluetooth.AdapterData
-
-				if err := b.adapter(objectPath).convertAndStoreObjects(mergedPropertyMap); err != nil {
+				adapter, err := b.adapter(objectPath).convertAndStoreObjects(mergedPropertyMap)
+				if err != nil {
 					dbh.PublishSignalError(err, signal,
 						"Bluez event handler error",
 						"error_at", "padded-adapter-decode",
@@ -360,9 +364,8 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 					PublishData(adapter.AdapterEventData)
 
 			case dbh.BluezDeviceIface:
-				var device bluetooth.DeviceData
-
-				if err := b.device(objectPath).convertAndStoreObjects(mergedPropertyMap); err != nil {
+				device, err := b.device(objectPath).convertAndStoreObjects(mergedPropertyMap)
+				if err != nil {
 					dbh.PublishSignalError(err, signal,
 						"Bluez event handler error",
 						"error_at", "padded-device-decode",
@@ -397,11 +400,16 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 					return
 				}
 
+				signal.Path = objectPath
 				dbh.PublishDeviceUpdateEvent(&b.store, signal, propertyMap)
 			}
 		}
 
 	case dbh.DbusSignalInterfacesRemovedIface:
+		if signal.Body != nil && len(signal.Body) < 2 {
+			return
+		}
+
 		objectPath, ok := signal.Body[0].(dbus.ObjectPath)
 		if !ok {
 			return
@@ -426,10 +434,10 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 				}
 
 				adapter := bluetooth.AdapterEventData{Address: address}
-				bluetooth.AdapterEvent(bluetooth.EventActionRemoved).PublishData(adapter)
-
 				b.store.RemoveAdapter(adapter.Address)
 				dbh.PathConverter.RemoveDbusPath(dbh.DbusPathAdapter, objectPath)
+
+				bluetooth.AdapterEvent(bluetooth.EventActionRemoved).PublishData(adapter)
 
 			case dbh.BluezDeviceIface:
 				address, ok := dbh.PathConverter.Address(dbh.DbusPathDevice, objectPath)
@@ -442,7 +450,7 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 					return
 				}
 
-				adapterPath := dbus.ObjectPath(filepath.Dir(string(signal.Path)))
+				adapterPath := dbus.ObjectPath(filepath.Dir(string(objectPath)))
 
 				adapterAddress, ok := dbh.PathConverter.Address(dbh.DbusPathAdapter, adapterPath)
 				if !ok {
@@ -458,10 +466,11 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 					Address:           address,
 					AssociatedAdapter: adapterAddress,
 				}
-				bluetooth.DeviceEvent(bluetooth.EventActionRemoved).PublishData(device)
 
 				b.store.RemoveDevice(device.Address)
 				dbh.PathConverter.RemoveDbusPath(dbh.DbusPathDevice, objectPath)
+
+				bluetooth.DeviceEvent(bluetooth.EventActionRemoved).PublishData(device)
 			}
 		}
 	}
