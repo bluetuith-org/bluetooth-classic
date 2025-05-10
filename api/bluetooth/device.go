@@ -30,6 +30,14 @@ type Device interface {
 	// Remove removes a device from its associated adapter.
 	Remove() error
 
+	// SetTrusted sets the device 'trust' status within its associated adapter.
+	// Currently is valid only on Linux.
+	SetTrusted(enable bool) error
+
+	// SetBlocked sets the device 'blocked' status within its associated adapter.
+	// Currently is valid only on Linux.
+	SetBlocked(enable bool) error
+
 	// Properties returns all the properties of the device.
 	Properties() (DeviceData, error)
 }
@@ -106,6 +114,11 @@ type DeviceEventData struct {
 
 	// UUIDs holds the device-supported Bluetooth profile UUIDs.
 	UUIDs []string `json:"uuids,omitempty" codec:"UUIDs,omitempty" doc:"The device-supported Bluetooth profile UUIDs."`
+}
+
+// HaveService returns if the device advertises a specific service (Bluetooth profile).
+func (d *DeviceData) HaveService(service uint32) bool {
+	return ServiceExists(d.UUIDs, service)
 }
 
 // DeviceTypeFromClass parses the device class and returns its type.

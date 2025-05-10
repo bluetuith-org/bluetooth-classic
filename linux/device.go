@@ -180,6 +180,48 @@ func (d *device) Remove() error {
 	return nil
 }
 
+// SetTrusted sets the device 'trust' status within its associated adapter.
+// Currently is valid only on Linux.
+func (d *device) SetTrusted(enable bool) error {
+	if _, err := d.check(); err != nil {
+		return err
+	}
+
+	if err := d.setDeviceProperty(d.path, "Trusted", enable); err != nil {
+		return fault.Wrap(err,
+			fctx.With(context.Background(),
+				"error_at", "device-trust-method",
+				"address", d.Address.String(),
+			),
+			ftag.With(ftag.Internal),
+			fmsg.With("Cannot set device 'trust' status"),
+		)
+	}
+
+	return nil
+}
+
+// SetBlocked sets the device 'blocked' status within its associated adapter.
+// Currently is valid only on Linux.
+func (d *device) SetBlocked(enable bool) error {
+	if _, err := d.check(); err != nil {
+		return err
+	}
+
+	if err := d.setDeviceProperty(d.path, "Blocked", enable); err != nil {
+		return fault.Wrap(err,
+			fctx.With(context.Background(),
+				"error_at", "device-blocked-method",
+				"address", d.Address.String(),
+			),
+			ftag.With(ftag.Internal),
+			fmsg.With("Cannot set device 'blocked' status"),
+		)
+	}
+
+	return nil
+}
+
 // Properties returns all the properties of the device.
 func (d *device) Properties() (bluetooth.DeviceData, error) {
 	return d.check()
@@ -235,6 +277,11 @@ func (d *device) check() (bluetooth.DeviceData, error) {
 func (d *device) callDevice(method string, flags dbus.Flags, args ...any) *dbus.Call {
 	return d.b.systemBus.Object(dbh.BluezBusName, d.path).
 		Call(dbh.BluezDeviceIface+"."+method, flags, args...)
+}
+
+// setDeviceProperty can be used to set certain properties for a bluetooth device.
+func (d *device) setDeviceProperty(devicePath dbus.ObjectPath, key string, value any) error {
+	return d.b.systemBus.Object(dbh.BluezBusName, devicePath).Call(dbh.DbusSetPropertiesIface, 0, dbh.BluezDeviceIface, key, dbus.MakeVariant(value)).Store()
 }
 
 // convertAndStoreObjects converts a map of dbus objects to a common DeviceData structure.

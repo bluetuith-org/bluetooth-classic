@@ -57,9 +57,6 @@ type FileTransferData struct {
 	// Type is the type of the file (mime-type).
 	Type string `json:"type,omitempty" codec:"Type,omitempty" doc:"The type of the file (mime-type)."`
 
-	// Status indicates the file transfer status.
-	Status FileTransferStatus `json:"status,omitempty" codec:"Status,omitempty" enum:"queued,active,suspended,complete,error" doc:"Indicates the file transfer status."`
-
 	// Filename is the complete name of the file.
 	Filename string `json:"filename,omitempty" codec:"Filename,omitempty" doc:"The complete name of the file."`
 
@@ -71,6 +68,9 @@ type FileTransferData struct {
 type FileTransferEventData struct {
 	// Address holds the Bluetooth MAC address of the device.
 	Address MacAddress `json:"address,omitempty" codec:"Address,omitempty" doc:"The Bluetooth MAC address of the device."`
+
+	// Status indicates the file transfer status.
+	Status FileTransferStatus `json:"status,omitempty" codec:"Status,omitempty" enum:"queued,active,suspended,complete,error" doc:"Indicates the file transfer status."`
 
 	// Size holds the total size of the file in bytes.
 	Size uint64 `json:"size,omitempty" codec:"Size,omitempty" doc:"The total size of the file in bytes."`

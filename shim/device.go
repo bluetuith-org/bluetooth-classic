@@ -68,6 +68,18 @@ func (d *device) Remove() error {
 	return err
 }
 
+// SetTrusted sets the device 'trust' status within its associated adapter.
+// Currently is valid only on Linux.
+func (d *device) SetTrusted(enable bool) error {
+	return errorkinds.ErrNotSupported
+}
+
+// SetBlocked sets the device 'blocked' status within its associated adapter.
+// Currently is valid only on Linux.
+func (d *device) SetBlocked(enable bool) error {
+	return errorkinds.ErrNotSupported
+}
+
 // Properties returns all the properties of the device.
 func (d *device) Properties() (bluetooth.DeviceData, error) {
 	return d.check()
