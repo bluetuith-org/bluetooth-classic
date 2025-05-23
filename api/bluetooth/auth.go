@@ -16,7 +16,7 @@ type SessionAuthorizer interface {
 // AuthTimeout describes an authentication timeout duration.
 // The context value is created with 'context.WithTimeout()'.
 type AuthTimeout struct {
-	ctx    context.Context
+	context.Context
 	cancel context.CancelFunc
 }
 
@@ -25,11 +25,6 @@ func NewAuthTimeout(timeout time.Duration) AuthTimeout {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 	return AuthTimeout{ctx, cancel}
-}
-
-// Done returns the inner context's Done() channel.
-func (a *AuthTimeout) Done() <-chan struct{} {
-	return a.ctx.Done()
 }
 
 // Cancel cancels the inner context.
