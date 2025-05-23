@@ -334,10 +334,7 @@ func (m *MediaPlayer) Properties() (bluetooth.MediaData, error) {
 func (m *MediaPlayer) ParseMap(values map[string]dbus.Variant) (bluetooth.MediaData, error) {
 	var props bluetooth.MediaData
 
-	track := bluetooth.TrackData{
-		Artist: "<Unknown Artist>",
-		Album:  "<Unknown Album>",
-	}
+	track := bluetooth.TrackData{}
 	if t, ok := values["Track"].Value().(map[string]dbus.Variant); ok {
 		if err := dbh.DecodeVariantMap(t, &track); err != nil {
 			return bluetooth.MediaData{}, err
