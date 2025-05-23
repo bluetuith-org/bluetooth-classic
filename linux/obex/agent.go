@@ -141,6 +141,9 @@ func (o *agent) AuthorizePush(transferPath dbus.ObjectPath) (string, *dbus.Error
 		return "", dbus.MakeFailedError(err)
 	}
 
+	dbh.PathConverter.AddDbusPath(dbh.DbusPathObexSession, sessionPath, o.Address)
+	dbh.PathConverter.AddDbusPath(dbh.DbusPathObexTransfer, transferPath, o.Address)
+
 	return path, nil
 }
 
