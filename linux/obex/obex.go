@@ -141,7 +141,7 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 				return
 			}
 
-			bluetooth.FileTransferEvent(bluetooth.EventActionUpdated).PublishData(transferData)
+			bluetooth.FileTransferEvents().PublishUpdated(transferData)
 		}
 
 	case dbh.DbusSignalInterfacesRemovedIface:
@@ -161,6 +161,20 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 				dbh.PathConverter.RemoveDbusPath(dbh.DbusPathObexSession, objectPath)
 
 			case dbh.ObexTransferIface:
+				address, ok := dbh.PathConverter.Address(dbh.DbusPathObexTransfer, objectPath)
+				if !ok {
+					dbh.PublishSignalError(errorkinds.ErrDeviceNotFound, signal,
+						"Obex event handler error",
+						"error_at", "premoved-obex-address",
+					)
+
+					return
+				}
+
+				bluetooth.FileTransferEvents().PublishRemoved(bluetooth.FileTransferEventData{
+					Address: address,
+				})
+
 				dbh.PathConverter.RemoveDbusPath(dbh.DbusPathObexTransfer, objectPath)
 			}
 		}

@@ -125,7 +125,6 @@ func (o *fileTransfer) SendFile(filepath string) (bluetooth.FileTransferData, er
 	}
 
 	var transferPath dbus.ObjectPath
-
 	var fileTransferObject bluetooth.FileTransferData
 
 	sessionPath, ok := dbh.PathConverter.DbusPath(dbh.DbusPathObexSession, o.Address)
@@ -172,6 +171,7 @@ func (o *fileTransfer) SendFile(filepath string) (bluetooth.FileTransferData, er
 			)
 	}
 
+	fileTransferObject.Address = o.Address
 	return fileTransferObject, nil
 }
 
