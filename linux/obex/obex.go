@@ -141,7 +141,7 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 				return
 			}
 
-			bluetooth.FileTransferEvent(bluetooth.EventActionUpdated).PublishData(transferData)
+			bluetooth.FileTransferEvents().PublishUpdated(transferData)
 		}
 
 	case dbh.DbusSignalInterfacesRemovedIface:
@@ -171,7 +171,7 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 					return
 				}
 
-				bluetooth.FileTransferEvent(bluetooth.EventActionRemoved).PublishData(bluetooth.FileTransferEventData{
+				bluetooth.FileTransferEvents().PublishRemoved(bluetooth.FileTransferEventData{
 					Address: address,
 				})
 

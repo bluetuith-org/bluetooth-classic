@@ -289,7 +289,7 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 				return
 			}
 
-			bluetooth.MediaEvent(bluetooth.EventActionUpdated).PublishData(bluetooth.MediaEventData{
+			bluetooth.MediaEvents().PublishUpdated(bluetooth.MediaEventData{
 				Address:   address,
 				MediaData: properties,
 			})
@@ -359,8 +359,7 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 				b.store.AddAdapter(adapter)
 				dbh.PathConverter.AddDbusPath(dbh.DbusPathAdapter, objectPath, adapter.Address)
 
-				bluetooth.AdapterEvent(bluetooth.EventActionAdded).
-					PublishData(adapter.AdapterEventData)
+				bluetooth.AdapterEvents().PublishAdded(adapter)
 
 			case dbh.BluezDeviceIface:
 				device, err := b.device(objectPath).convertAndStoreObjects(mergedPropertyMap)
@@ -376,8 +375,7 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 				b.store.AddDevice(device)
 				dbh.PathConverter.AddDbusPath(dbh.DbusPathDevice, objectPath, device.Address)
 
-				bluetooth.DeviceEvent(bluetooth.EventActionAdded).
-					PublishData(device.DeviceEventData)
+				bluetooth.DeviceEvents().PublishAdded(device)
 
 			case dbh.BluezBatteryIface:
 				percentage := -1
@@ -436,7 +434,7 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 				b.store.RemoveAdapter(adapter.Address)
 				dbh.PathConverter.RemoveAdapterDbusPath(objectPath)
 
-				bluetooth.AdapterEvent(bluetooth.EventActionRemoved).PublishData(adapter)
+				bluetooth.AdapterEvents().PublishRemoved(adapter)
 
 			case dbh.BluezDeviceIface:
 				address, ok := dbh.PathConverter.Address(dbh.DbusPathDevice, objectPath)
@@ -469,7 +467,7 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 				b.store.RemoveDevice(device.Address)
 				dbh.PathConverter.RemoveDbusPath(dbh.DbusPathDevice, objectPath)
 
-				bluetooth.DeviceEvent(bluetooth.EventActionRemoved).PublishData(device)
+				bluetooth.DeviceEvents().PublishRemoved(device)
 			}
 		}
 	}

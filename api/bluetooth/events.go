@@ -5,31 +5,6 @@ import (
 	"github.com/bluetuith-org/bluetooth-classic/api/eventbus"
 )
 
-// Events defines a set of possible event data types.
-type Events interface {
-	errorkinds.GenericError | AdapterEventData | DeviceEventData | MediaEventData | FileTransferEventData
-}
-
-// Event represents a general event.
-type Event[T Events] struct {
-	// ID holds the event ID.
-	ID EventID `json:"event_id,omitempty" doc:"The event ID."`
-
-	// Action holds the corresponding action associated
-	// with this event.
-	Action EventAction `json:"event_action,omitempty" enum:"updated,added,removed" doc:"The corresponding action associated with this event"`
-
-	// Data holds the actual event data.
-	Data T `json:"event_data,omitempty" doc:"The actual event data."`
-}
-
-// Subscriber describes a subscriber token.
-type Subscriber[T Events] struct {
-	C            <-chan Event[T]
-	Subscribable bool
-	Unsubscribe  eventbus.UnsubFunc
-}
-
 // EventID represents a unique event ID.
 type EventID byte
 
@@ -82,93 +57,144 @@ func (e EventID) Value() uint {
 	return uint(e)
 }
 
-// PublishData publishes the event to the event stream with the provided data.
-func (e Event[T]) PublishData(data T) {
-	e.Data = data
-	eventbus.Publish(e.ID, e)
+// Events defines a set of possible event data types.
+type Events interface {
+	NewDataEvents | UpdatedDataEvents
 }
 
-// Publish publishes the event to the event stream as-is.
-func (e Event[T]) Publish() {
-	eventbus.Publish(e.ID, e)
+type NewDataEvents interface {
+	errorkinds.GenericError | AdapterData | DeviceData | FileTransferData | MediaData
 }
 
-// Subscribe listens to the event stream and subscribes to the event.
-// To unsubscribe from the event, use (Subscriber).Unsubscribe().
-// It will never return a nil channel.
-// To check if the returned channel will get events, use (Subscriber).Subscribable.
-func (e Event[T]) Subscribe() Subscriber[T] {
-	eventChan := make(chan Event[T], 10)
+type UpdatedDataEvents interface {
+	struct{} | AdapterEventData | DeviceEventData | FileTransferEventData | MediaEventData
+}
 
+// Event represents a general event.
+type Event[T Events] struct {
+	// ID holds the event ID.
+	ID EventID `json:"event_id,omitempty" doc:"The event ID."`
+
+	// Action holds the corresponding action associated
+	// with this event.
+	Action EventAction `json:"event_action,omitempty" enum:"updated,added,removed" doc:"The corresponding action associated with this event"`
+
+	// Data holds the actual event data.
+	Data T `json:"event_data,omitempty" doc:"The actual event data."`
+}
+
+type EventGroup[N NewDataEvents, U UpdatedDataEvents] struct {
+	// ID holds the event ID.
+	ID EventID
+}
+
+type Subscriber[N NewDataEvents, U UpdatedDataEvents] struct {
+	AddedEvents                  chan N
+	UpdatedEvents, RemovedEvents chan U
+	Done                         chan struct{}
+
+	Unsubscribe eventbus.UnsubFunc
+}
+
+func (e EventGroup[N, U]) PublishAdded(data N) {
+	eventbus.Publish(e.ID, Event[N]{e.ID, EventActionAdded, data})
+}
+
+func (e EventGroup[N, U]) PublishUpdated(data U) {
+	eventbus.Publish(e.ID, Event[U]{e.ID, EventActionUpdated, data})
+}
+
+func (e EventGroup[N, U]) PublishRemoved(data U) {
+	eventbus.Publish(e.ID, Event[U]{e.ID, EventActionRemoved, data})
+}
+
+func (e EventGroup[N, U]) Subscribe() (*Subscriber[N, U], bool) {
 	id := eventbus.Subscribe(e.ID)
+
+	sub := Subscriber[N, U]{
+		AddedEvents:   make(chan N, 1),
+		RemovedEvents: make(chan U, 1),
+		UpdatedEvents: make(chan U, 1),
+		Done:          make(chan struct{}, 1),
+		Unsubscribe:   id.Unsubscribe,
+	}
+
 	if !id.IsActive() {
-		close(eventChan)
+		close(sub.AddedEvents)
+		close(sub.RemovedEvents)
+		close(sub.UpdatedEvents)
 		goto Token
 	}
 
 	go func() {
 		for data := range id.C {
-			if ev, ok := data.(Event[T]); ok {
+			switch v := data.(type) {
+			case Event[N]:
+				if v.Action != EventActionAdded {
+					continue
+				}
+
 				select {
-				case eventChan <- ev:
+				case sub.AddedEvents <- v.Data:
+				default:
+				}
+
+			case Event[U]:
+				var ch chan U
+
+				switch v.Action {
+				case EventActionUpdated:
+					ch = sub.UpdatedEvents
+
+				case EventActionRemoved:
+					ch = sub.RemovedEvents
+
+				default:
+					continue
+				}
+
+				select {
+				case ch <- v.Data:
 				default:
 				}
 			}
 		}
 
-		close(eventChan)
+		select {
+		case sub.Done <- struct{}{}:
+		default:
+		}
+
+		close(sub.AddedEvents)
+		close(sub.RemovedEvents)
+		close(sub.UpdatedEvents)
 	}()
 
 Token:
-	return Subscriber[T]{C: eventChan, Subscribable: id.IsActive(), Unsubscribe: id.Unsubscribe}
+	return &sub, id.IsActive()
 }
 
-// AdapterEvent returns an event interface to publish/subscribe to adapter events.
-func AdapterEvent(action ...EventAction) Event[AdapterEventData] {
-	eventAction := EventActionNone
-	if action != nil {
-		eventAction = action[0]
-	}
-
-	return Event[AdapterEventData]{ID: EventAdapter, Action: eventAction}
+// AdapterEvent returns an event interface to subscribe to adapter events.
+func AdapterEvents(action ...EventAction) EventGroup[AdapterData, AdapterEventData] {
+	return EventGroup[AdapterData, AdapterEventData]{ID: EventAdapter}
 }
 
-// DeviceEvent returns an event interface to publish/subscribe to device events.
-func DeviceEvent(action ...EventAction) Event[DeviceEventData] {
-	eventAction := EventActionNone
-	if action != nil {
-		eventAction = action[0]
-	}
-
-	return Event[DeviceEventData]{ID: EventDevice, Action: eventAction}
+// DeviceEvent returns an event interface to subscribe to device events.
+func DeviceEvents(action ...EventAction) EventGroup[DeviceData, DeviceEventData] {
+	return EventGroup[DeviceData, DeviceEventData]{ID: EventDevice}
 }
 
-// MediaEvent returns an event interface to publish/subscribe to media events.
-func MediaEvent(action ...EventAction) Event[MediaEventData] {
-	eventAction := EventActionNone
-	if action != nil {
-		eventAction = action[0]
-	}
-
-	return Event[MediaEventData]{ID: EventMediaPlayer, Action: eventAction}
+// MediaEvent returns an event interface to subscribe to media events.
+func MediaEvents(action ...EventAction) EventGroup[MediaData, MediaEventData] {
+	return EventGroup[MediaData, MediaEventData]{ID: EventMediaPlayer}
 }
 
-// FileTransferEvent returns an event interface to publish/subscribe to file transfer events.
-func FileTransferEvent(action ...EventAction) Event[FileTransferEventData] {
-	eventAction := EventActionNone
-	if action != nil {
-		eventAction = action[0]
-	}
-
-	return Event[FileTransferEventData]{ID: EventFileTransfer, Action: eventAction}
+// FileTransferEvent returns an event interface to subscribe to file transfer events.
+func FileTransferEvents(action ...EventAction) EventGroup[FileTransferData, FileTransferEventData] {
+	return EventGroup[FileTransferData, FileTransferEventData]{ID: EventFileTransfer}
 }
 
-// ErrorEvent returns an event interface to publish/subscribe to error events.
-func ErrorEvent(err ...error) Event[errorkinds.GenericError] {
-	ev := Event[errorkinds.GenericError]{ID: EventError, Action: EventActionAdded}
-	if err != nil {
-		ev.Data = errorkinds.GenericError{Errors: err[0]}
-	}
-
-	return ev
+// ErrorEvent returns an event interface to subscribe to error events.
+func ErrorEvents(err ...error) EventGroup[errorkinds.GenericError, struct{}] {
+	return EventGroup[errorkinds.GenericError, struct{}]{ID: EventError}
 }

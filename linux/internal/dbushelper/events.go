@@ -32,7 +32,7 @@ func PublishAdapterUpdateEvent(store *sstore.SessionStore, signal *dbus.Signal, 
 			return
 		}
 
-		bluetooth.AdapterEvent(bluetooth.EventActionUpdated).PublishData(updated)
+		bluetooth.AdapterEvents().PublishUpdated(updated)
 	}()
 }
 
@@ -59,6 +59,6 @@ func PublishDeviceUpdateEvent(store *sstore.SessionStore, signal *dbus.Signal, v
 			return
 		}
 
-		bluetooth.DeviceEvent(bluetooth.EventActionUpdated).PublishData(updated)
+		bluetooth.DeviceEvents().PublishUpdated(updated)
 	}()
 }
