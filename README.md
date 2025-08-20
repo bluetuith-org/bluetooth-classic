@@ -25,7 +25,7 @@ This project is funded through [NGI Zero Core](https://nlnet.nl/core), a fund es
   - PulseAudio (optional, required to manage device audio profiles)
 
 - Windows
-  - [bluetuith-shim-windows](https://github.com/bluetuith-org/bluetuith-shim-windows)
+  - [haraltd](https://github.com/bluetuith-org/haraltd)
   - Start the server before using this library (i.e using the `server start` command)
 
 ## Feature matrix
