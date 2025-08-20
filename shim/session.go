@@ -16,6 +16,8 @@ import (
 	"github.com/Southclaws/fault/fctx"
 	"github.com/Southclaws/fault/fmsg"
 	"github.com/Southclaws/fault/ftag"
+	"github.com/puzpuzpuz/xsync/v3"
+
 	ac "github.com/bluetuith-org/bluetooth-classic/api/appfeatures"
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	"github.com/bluetuith-org/bluetooth-classic/api/config"
@@ -25,7 +27,6 @@ import (
 	"github.com/bluetuith-org/bluetooth-classic/shim/internal/commands"
 	"github.com/bluetuith-org/bluetooth-classic/shim/internal/events"
 	"github.com/bluetuith-org/bluetooth-classic/shim/internal/serde"
-	"github.com/puzpuzpuz/xsync/v3"
 )
 
 // ShimSession describes a connected session with a running shim RPC server.
@@ -52,7 +53,7 @@ type ShimSession struct {
 
 //revive:enable
 
-const socketName = "bh-shim.sock"
+const socketName = "hd.sock"
 
 // Start attempts to initialize a session with the system's Bluetooth daemon or service.
 // Upon complete initialization, it returns the session descriptor, and capabilities of
@@ -85,7 +86,7 @@ func (s *ShimSession) Start(authHandler bluetooth.SessionAuthorizer, cfg config.
 				)
 		}
 
-		cfg.SocketPath = path.Join(dir, "bh-shim", socketName)
+		cfg.SocketPath = path.Join(dir, "haraltd", socketName)
 	}
 
 	ctx := s.reset(false)
@@ -135,6 +136,12 @@ func (s *ShimSession) Start(authHandler bluetooth.SessionAuthorizer, cfg config.
 	}
 
 	s.features = ac.NewFeatureSet(features, ce)
+
+	if s.features.Has(ac.FeatureSendFile, ac.FeatureReceiveFile) {
+		if _, err := commands.RegisterAgent(commands.ObexAgent).ExecuteWith(s.executor); err != nil {
+			ce.Append(ac.NewError(ac.FeatureSendFile, err))
+		}
+	}
 
 	return s.features, platformInfo, nil
 }
@@ -290,6 +297,8 @@ func (s *ShimSession) listen(ctx context.Context) {
 				sendData(replyChan, response.CommandResponse)
 			}
 		}
+
+		s.handleListenerError(scanner.Err(), true)
 	}
 }
 
@@ -297,22 +306,25 @@ func (s *ShimSession) listen(ctx context.Context) {
 func (s *ShimSession) handleListenerEvent(ev events.ServerEvent) {
 	switch ev.EventId {
 	case bluetooth.EventError:
-		errorEvent, err := events.UnmarshalBluetoothEvent[errorkinds.GenericError](ev)
+		var genError error
+
+		errorEvent, err := events.Unmarshal[errorkinds.GenericError](ev)
 		if err != nil {
-			bluetooth.ErrorEvent(err).Publish()
-			return
+			genError = err
+		} else {
+			genError = errorEvent
 		}
 
-		errorEvent.Publish()
+		bluetooth.ErrorEvents().PublishAdded(wrapError(genError))
 
 	case bluetooth.EventAuthentication:
 		authEvent, err := events.UnmarshalAuthEvent(ev)
 		if err != nil {
-			bluetooth.ErrorEvent(err).Publish()
+			bluetooth.ErrorEvents().PublishAdded(wrapError(err))
 			return
 		}
 
-		authEvent.CallAuthorizer(s.authorizer, func(authEvent events.AuthEventData, reply events.AuthReply, err error) {
+		err = authEvent.CallAuthorizer(s.authorizer, func(authEvent events.AuthEventData, reply events.AuthReply, err error) {
 			var response string
 
 			if err == nil {
@@ -321,85 +333,113 @@ func (s *ShimSession) handleListenerEvent(ev events.ServerEvent) {
 
 			_, err = commands.AuthenticationReply(authEvent.AuthID, response).ExecuteWith(s.executor, (authEvent.TimeoutMs/1000)+2)
 			if err != nil {
-				bluetooth.ErrorEvent(err).Publish()
+				bluetooth.ErrorEvents().PublishAdded(wrapError(err))
 			}
 		})
+		if err != nil {
+			bluetooth.ErrorEvents().PublishAdded(wrapError(err))
+		}
 
 	case bluetooth.EventAdapter:
-		adapterEvent, err := events.UnmarshalBluetoothEvent[bluetooth.AdapterEventData](ev)
+		adapter, err := events.Unmarshal[bluetooth.AdapterData](ev)
 		if err != nil {
-			bluetooth.ErrorEvent(err).Publish()
+			bluetooth.ErrorEvents().PublishAdded(wrapError(err))
 			return
 		}
 
-		adapterEvent.Publish()
-
-		switch adapterEvent.Action {
+		switch ev.EventAction {
 		case bluetooth.EventActionAdded:
-			adapter, err := commands.AdapterProperties(adapterEvent.Data.Address).ExecuteWith(s.executor)
+			bluetooth.AdapterEvents().PublishUpdated(adapter.AdapterEventData)
+
+			adapter, err := commands.AdapterProperties(adapter.Address).ExecuteWith(s.executor)
 			if err != nil {
-				bluetooth.ErrorEvent(err).Publish()
+				bluetooth.ErrorEvents().PublishAdded(wrapError(err))
 				return
 			}
 
 			s.store.AddAdapter(adapter)
 
 		case bluetooth.EventActionUpdated:
-			s.store.UpdateAdapter(adapterEvent.Data.Address, func(dd *bluetooth.AdapterData) error {
-				dd.AdapterEventData = adapterEvent.Data
-				return nil
+			updated, err := s.store.UpdateAdapter(adapter.Address, func(dd *bluetooth.AdapterData) error {
+				return events.UnmarshalRawEvent(ev, &dd.AdapterEventData)
 			})
-
-		case bluetooth.EventActionRemoved:
-			s.store.RemoveAdapter(adapterEvent.Data.Address)
-		}
-
-	case bluetooth.EventDevice:
-		deviceEvent, err := events.UnmarshalBluetoothEvent[bluetooth.DeviceEventData](ev)
-		if err != nil {
-			bluetooth.ErrorEvent(err).Publish()
-			return
-		}
-
-		deviceEvent.Publish()
-
-		switch deviceEvent.Action {
-		case bluetooth.EventActionAdded:
-			device, err := commands.DeviceProperties(deviceEvent.Data.Address).ExecuteWith(s.executor)
 			if err != nil {
-				bluetooth.ErrorEvent(err).Publish()
+				bluetooth.ErrorEvents().PublishAdded(wrapError(err))
 				return
 			}
 
+			bluetooth.AdapterEvents().PublishUpdated(updated)
+
+		case bluetooth.EventActionRemoved:
+			bluetooth.AdapterEvents().PublishRemoved(adapter.AdapterEventData)
+			s.store.RemoveAdapter(adapter.Address)
+		}
+
+	case bluetooth.EventDevice:
+		device, err := events.Unmarshal[bluetooth.DeviceData](ev)
+		if err != nil {
+			bluetooth.ErrorEvents().PublishAdded(wrapError(err))
+			return
+		}
+
+		switch ev.EventAction {
+		case bluetooth.EventActionAdded:
+			device.Type = bluetooth.DeviceTypeFromClass(device.Class)
+
+			bluetooth.DeviceEvents().PublishAdded(device)
 			s.store.AddDevice(device)
 
 		case bluetooth.EventActionUpdated:
-			s.store.UpdateDevice(deviceEvent.Data.Address, func(dd *bluetooth.DeviceData) error {
-				dd.DeviceEventData = deviceEvent.Data
-				return nil
+			updated, err := s.store.UpdateDevice(device.Address, func(dd *bluetooth.DeviceData) error {
+				return events.UnmarshalRawEvent(ev, &dd.DeviceEventData)
 			})
+			if err != nil {
+				bluetooth.ErrorEvents().PublishAdded(wrapError(err))
+				return
+			}
+
+			bluetooth.DeviceEvents().PublishUpdated(updated)
 
 		case bluetooth.EventActionRemoved:
-			s.store.RemoveDevice(deviceEvent.Data.Address)
+			bluetooth.DeviceEvents().PublishRemoved(device.DeviceEventData)
+			s.store.RemoveDevice(device.Address)
 		}
 
-	case bluetooth.EventFileTransfer:
-		filetransferEvent, err := events.UnmarshalBluetoothEvent[bluetooth.FileTransferEventData](ev)
+	case bluetooth.EventObjectPush:
+		filetransfer, err := events.Unmarshal[bluetooth.ObjectPushData](ev)
 		if err != nil {
-			bluetooth.ErrorEvent(err).Publish()
+			bluetooth.ErrorEvents().PublishAdded(wrapError(err))
 			return
 		}
 
-		filetransferEvent.Publish()
+		switch ev.EventAction {
+		case bluetooth.EventActionAdded:
+			bluetooth.ObjectPushEvents().PublishAdded(filetransfer)
+
+		case bluetooth.EventActionUpdated:
+			bluetooth.ObjectPushEvents().PublishUpdated(filetransfer.ObjectPushEventData)
+
+		case bluetooth.EventActionRemoved:
+			bluetooth.ObjectPushEvents().PublishRemoved(filetransfer.ObjectPushEventData)
+		}
 
 	case bluetooth.EventMediaPlayer:
-		mediaplayerEvent, err := events.UnmarshalBluetoothEvent[bluetooth.MediaEventData](ev)
+		mediaplayer, err := events.Unmarshal[bluetooth.MediaData](ev)
 		if err != nil {
-			bluetooth.ErrorEvent(err).Publish()
+			bluetooth.ErrorEvents().PublishAdded(wrapError(err))
 			return
 		}
 
-		mediaplayerEvent.Publish()
+		switch ev.EventAction {
+		case bluetooth.EventActionAdded:
+			bluetooth.MediaEvents().PublishAdded(mediaplayer)
+
+		case bluetooth.EventActionUpdated:
+			bluetooth.MediaEvents().PublishUpdated(mediaplayer)
+
+		case bluetooth.EventActionRemoved:
+			bluetooth.MediaEvents().PublishRemoved(mediaplayer)
+		}
 	}
 }
 
@@ -407,7 +447,10 @@ func (s *ShimSession) handleListenerEvent(ev events.ServerEvent) {
 // If the 'stop' parameter is specified, it means that an unrecoverable error occurred
 // and the application must exit.
 func (s *ShimSession) handleListenerError(err error, stop bool) {
-	bluetooth.ErrorEvent(err).Publish()
+	if err != nil {
+		bluetooth.ErrorEvents().PublishAdded(wrapError(err))
+	}
+
 	if stop {
 		s.Stop()
 	}
@@ -488,4 +531,8 @@ func (s *ShimSession) cleanup() {
 	if s.conn != nil {
 		s.conn.Close()
 	}
+}
+
+func wrapError(err error) errorkinds.GenericError {
+	return errorkinds.GenericError{Errors: err}
 }

@@ -59,7 +59,7 @@ func (d *dbusPathConverter) RemoveAdapterDbusPath(path dbus.ObjectPath) {
 	}
 
 	d.RemoveDbusPath(DbusPathAdapter, path)
-	d.paths.Range(func(p dbusPath, address bluetooth.MacAddress) bool {
+	d.paths.Range(func(p dbusPath, _ bluetooth.MacAddress) bool {
 		if p.pathType != DbusPathDevice || filepath.Dir(string(p.path)) == string(p.path) {
 			return true
 		}

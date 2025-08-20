@@ -177,21 +177,21 @@ func (b *BluezSession) MediaPlayer(deviceAddress bluetooth.MacAddress) bluetooth
 	return &mp.MediaPlayer{SystemBus: b.systemBus, Address: deviceAddress}
 }
 
-// adapter returns an adapter-related function call interface for internal use.
-// This is used primarily to initialize adapter objects.
-func (b *BluezSession) adapter(path dbus.ObjectPath) *adapter {
+// adapterInternal returns an adapter-related function call interface for internal use.
+// This is used primarily to initialize adapterInternal objects.
+func (b *BluezSession) adapterInternal(path dbus.ObjectPath) *adapter {
 	return &adapter{b: b, path: path}
 }
 
-// device returns an device-related function call interface for internal use.
-// This is used primarily to initialize device objects.
-func (b *BluezSession) device(path dbus.ObjectPath) *device {
+// deviceInternal returns an device-related function call interface for internal use.
+// This is used primarily to initialize deviceInternal objects.
+func (b *BluezSession) deviceInternal(path dbus.ObjectPath) *device {
 	return &device{b: b, path: path}
 }
 
-// mediaPlayer returns an mediaplayer-related function call interface for internal use.
-// This is used primarily to initialize mediaPlayer objects.
-func (b *BluezSession) mediaPlayer() *mp.MediaPlayer {
+// mediaPlayerInternal returns an mediaplayer-related function call interface for internal use.
+// This is used primarily to initialize mediaPlayerInternal objects.
+func (b *BluezSession) mediaPlayerInternal() *mp.MediaPlayer {
 	return &mp.MediaPlayer{SystemBus: b.systemBus}
 }
 
@@ -211,10 +211,10 @@ func (b *BluezSession) refreshStore() error {
 
 			switch iface {
 			case dbh.BluezAdapterIface:
-				_, err = b.adapter(path).convertAndStoreObjects(values)
+				_, err = b.adapterInternal(path).convertAndStoreObjects(values)
 
 			case dbh.BluezDeviceIface:
-				_, err = b.device(path).convertAndStoreObjects(values)
+				_, err = b.deviceInternal(path).convertAndStoreObjects(values)
 			}
 
 			if err != nil {
@@ -279,7 +279,7 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 				return
 			}
 
-			properties, err := b.mediaPlayer().ParseMap(propertyMap)
+			properties, err := b.mediaPlayerInternal().ParseMap(propertyMap)
 			if err != nil {
 				dbh.PublishSignalError(err, signal,
 					"Bluez event handler error",
@@ -289,10 +289,8 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 				return
 			}
 
-			bluetooth.MediaEvents().PublishUpdated(bluetooth.MediaEventData{
-				Address:   address,
-				MediaData: properties,
-			})
+			properties.Address = address
+			bluetooth.MediaEvents().PublishUpdated(properties)
 
 		case dbh.BluezBatteryIface:
 			percentage := -1
@@ -346,7 +344,7 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 
 			switch iftype {
 			case dbh.BluezAdapterIface:
-				adapter, err := b.adapter(objectPath).convertAndStoreObjects(mergedPropertyMap)
+				adapter, err := b.adapterInternal(objectPath).convertAndStoreObjects(mergedPropertyMap)
 				if err != nil {
 					dbh.PublishSignalError(err, signal,
 						"Bluez event handler error",
@@ -362,7 +360,7 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 				bluetooth.AdapterEvents().PublishAdded(adapter)
 
 			case dbh.BluezDeviceIface:
-				device, err := b.device(objectPath).convertAndStoreObjects(mergedPropertyMap)
+				device, err := b.deviceInternal(objectPath).convertAndStoreObjects(mergedPropertyMap)
 				if err != nil {
 					dbh.PublishSignalError(err, signal,
 						"Bluez event handler error",

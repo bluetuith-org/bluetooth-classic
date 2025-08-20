@@ -42,6 +42,7 @@ func MarshalJson[T any](v T) ([]byte, error) {
 
 	gendecoder.jsonEncoder.ResetBytes(&gendecoder.jsonData)
 
+	// copy the slice
 	return gendecoder.jsonData, gendecoder.jsonEncoder.Encode(v)
 }
 

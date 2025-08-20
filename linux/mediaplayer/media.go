@@ -1,6 +1,6 @@
 //go:build linux
 
-package linux
+package mediaplayer
 
 import (
 	"context"
@@ -24,6 +24,7 @@ type MediaPlayer struct {
 	Address   bluetooth.MacAddress
 }
 
+// AudioProfiles lists all available audio profiles for use with a device.
 func (m *MediaPlayer) AudioProfiles() ([]bluetooth.AudioProfile, error) {
 	var profiles []bluetooth.AudioProfile
 
@@ -88,6 +89,7 @@ func (m *MediaPlayer) AudioProfiles() ([]bluetooth.AudioProfile, error) {
 	)
 }
 
+// SetAudioProfile sets the audio profile for the device.
 func (m *MediaPlayer) SetAudioProfile(profile bluetooth.AudioProfile) error {
 	client, err := pulseaudio.NewClient()
 	if err != nil {
@@ -173,8 +175,12 @@ func (m *MediaPlayer) TogglePlayPause() error {
 	if err != nil {
 		return err
 	}
+	st, ok := status.(string)
+	if !ok {
+		return errors.New("invalid status identifier")
+	}
 
-	switch status.(string) {
+	switch st {
 	case "playing":
 		return m.Pause()
 	case "paused":

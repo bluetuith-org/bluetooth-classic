@@ -17,13 +17,13 @@ type DefaultEventHandler struct {
 // EventPublisher represents an interface that provides an event publisher.
 type EventPublisher interface {
 	// Publish publishes an event to the event stream.
-	Publish(id uint, name string, data any)
+	Publish(id uint, data any)
 }
 
 // EventSubscriber represents an interface that provides an event subscriber.
 type EventSubscriber interface {
 	// Subscribe subscribes to an event from the event stream.
-	Subscribe(id uint, name string) SubscriberID
+	Subscribe(id uint) SubscriberID
 }
 
 // EventHandler represents an interface that provides an event publisher and subscriber.
@@ -47,32 +47,21 @@ func init() {
 }
 
 // RegisterEventHandler registers the event handler interface.
-func RegisterEventHandler(eh EventHandler) {
-	if eh == nil {
-		return
-	}
-
+func RegisterEventHandler[H EventHandler](eh H) {
 	eventEmitter.mu.Lock()
 	defer eventEmitter.mu.Unlock()
 
-	eventEmitter.p = eh.(EventPublisher)
-	eventEmitter.s = eh.(EventSubscriber)
+	eventEmitter.p = eh
+	eventEmitter.s = eh
 }
 
 // RegisterEventHandlers registers the event publisher and subscriber interfaces separately.
 // To disable an EventPublisher or EventSubscriber, pass 'nil' as the parameter.
 // For example: `RegisterEventHandlers(&eventPublisher{}, nil)` can be called to only register
 // an event publisher.
-func RegisterEventHandlers(p EventPublisher, s EventSubscriber) {
+func RegisterEventHandlers[P EventPublisher, S EventSubscriber](p P, s S) {
 	eventEmitter.mu.Lock()
 	defer eventEmitter.mu.Unlock()
-
-	if p == nil {
-		p = &NilEventHandler{}
-	}
-	if s == nil {
-		s = &NilEventHandler{}
-	}
 
 	eventEmitter.p = p
 	eventEmitter.s = s
@@ -93,20 +82,20 @@ func Publish(id EventID, data any) {
 	p := eventEmitter.p
 	eventEmitter.mu.RUnlock()
 
-	p.Publish(id.Value(), id.String(), data)
+	p.Publish(id.Value(), data)
 }
 
 // Subscribe calls the registered subscriber handler.
 func Subscribe(id EventID) SubscriberID {
 	if id == nil {
-		return (&NilEventHandler{}).Subscribe(0, "")
+		return (&NilEventHandler{}).Subscribe(0)
 	}
 
 	eventEmitter.mu.RLock()
 	s := eventEmitter.s
 	eventEmitter.mu.RUnlock()
 
-	return s.Subscribe(id.Value(), id.String())
+	return s.Subscribe(id.Value())
 }
 
 // DefaultHandler returns the default event handler.
@@ -120,12 +109,12 @@ func NilHandler() *NilEventHandler {
 }
 
 // Publish publishes an event to the event stream.
-func (d *DefaultEventHandler) Publish(id uint, _ string, data any) {
+func (d *DefaultEventHandler) Publish(id uint, data any) {
 	d.TryPub(data, id)
 }
 
 // Subscribe subscribes to an event from the event stream.
-func (d *DefaultEventHandler) Subscribe(id uint, _ string) SubscriberID {
+func (d *DefaultEventHandler) Subscribe(id uint) SubscriberID {
 	ch := d.Sub(id)
 	return SubscriberID{
 		C:      ch,
@@ -137,11 +126,11 @@ func (d *DefaultEventHandler) Subscribe(id uint, _ string) SubscriberID {
 }
 
 // Publish does not do anything.
-func (n *NilEventHandler) Publish(uint, string, any) {
+func (n *NilEventHandler) Publish(uint, any) {
 }
 
 // Subscribe does not do anything.
-func (n *NilEventHandler) Subscribe(uint, string) SubscriberID {
+func (n *NilEventHandler) Subscribe(uint) SubscriberID {
 	ch := make(chan any)
 	close(ch)
 	return SubscriberID{C: ch}

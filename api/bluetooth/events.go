@@ -14,7 +14,7 @@ const (
 	EventError
 	EventAdapter
 	EventDevice
-	EventFileTransfer
+	EventObjectPush
 	EventMediaPlayer
 	EventAuthentication
 )
@@ -37,7 +37,7 @@ var (
 		EventError:        "error_event",
 		EventAdapter:      "adapter_event",
 		EventDevice:       "device_event",
-		EventFileTransfer: "file_transfer_event",
+		EventObjectPush: "file_transfer_event",
 		EventMediaPlayer:  "media_player_event",
 	}
 )
@@ -62,12 +62,19 @@ type Events interface {
 	NewDataEvents | UpdatedDataEvents
 }
 
+// NewDataEvents represents a set of events that contain complete information about an instance or event.
+// These types of events are usually published with the [EventActionAdded] event action.
 type NewDataEvents interface {
-	errorkinds.GenericError | AdapterData | DeviceData | FileTransferData | MediaData
+	errorkinds.GenericError | AdapterData | DeviceData | ObjectPushData | MediaData
 }
 
+type emptyUpdatedDataEvent struct{}
+
+// UpdatedDataEvents represents a set of events that contain a limited amount of data.
+// These types of events are usually published with the [EventActionUpdated] or [EventActionRemoved]
+// event actions.
 type UpdatedDataEvents interface {
-	struct{} | AdapterEventData | DeviceEventData | FileTransferEventData | MediaEventData
+	emptyUpdatedDataEvent | AdapterEventData | DeviceEventData | ObjectPushEventData | MediaData
 }
 
 // Event represents a general event.
@@ -83,11 +90,13 @@ type Event[T Events] struct {
 	Data T `json:"event_data,omitempty" doc:"The actual event data."`
 }
 
+// EventGroup holds a set of events that can be added ([NewDataEvents]) or updated ([UpdatedDataEvents]) for a particular event ID ([EventID])
 type EventGroup[N NewDataEvents, U UpdatedDataEvents] struct {
 	// ID holds the event ID.
 	ID EventID
 }
 
+// Subscriber describes a subscription to an event group.
 type Subscriber[N NewDataEvents, U UpdatedDataEvents] struct {
 	AddedEvents                  chan N
 	UpdatedEvents, RemovedEvents chan U
@@ -96,18 +105,26 @@ type Subscriber[N NewDataEvents, U UpdatedDataEvents] struct {
 	Unsubscribe eventbus.UnsubFunc
 }
 
+// PublishAdded publishes an event with the 'added' action, which is to indicate that a particular object was added to
+// a particular instance or domain.
 func (e EventGroup[N, U]) PublishAdded(data N) {
 	eventbus.Publish(e.ID, Event[N]{e.ID, EventActionAdded, data})
 }
 
+// PublishUpdated publishes an event with the 'updated' action, which is to indicate that a particular object was updated within
+// a particular instance or domain.
 func (e EventGroup[N, U]) PublishUpdated(data U) {
 	eventbus.Publish(e.ID, Event[U]{e.ID, EventActionUpdated, data})
 }
 
+// PublishRemoved publishes an event with the 'removed' action, which is to indicate that a particular object was removed from
+// a particular instance or domain.
 func (e EventGroup[N, U]) PublishRemoved(data U) {
 	eventbus.Publish(e.ID, Event[U]{e.ID, EventActionRemoved, data})
 }
 
+// Subscribe subscribes to an event group, and returns a subscriber ID which can be used
+// to unsubscribe from the event.
 func (e EventGroup[N, U]) Subscribe() (*Subscriber[N, U], bool) {
 	id := eventbus.Subscribe(e.ID)
 
@@ -174,27 +191,27 @@ Token:
 	return &sub, id.IsActive()
 }
 
-// AdapterEvent returns an event interface to subscribe to adapter events.
-func AdapterEvents(action ...EventAction) EventGroup[AdapterData, AdapterEventData] {
+// AdapterEvents returns an event interface to subscribe to adapter events.
+func AdapterEvents() EventGroup[AdapterData, AdapterEventData] {
 	return EventGroup[AdapterData, AdapterEventData]{ID: EventAdapter}
 }
 
-// DeviceEvent returns an event interface to subscribe to device events.
-func DeviceEvents(action ...EventAction) EventGroup[DeviceData, DeviceEventData] {
+// DeviceEvents returns an event interface to subscribe to device events.
+func DeviceEvents() EventGroup[DeviceData, DeviceEventData] {
 	return EventGroup[DeviceData, DeviceEventData]{ID: EventDevice}
 }
 
-// MediaEvent returns an event interface to subscribe to media events.
-func MediaEvents(action ...EventAction) EventGroup[MediaData, MediaEventData] {
-	return EventGroup[MediaData, MediaEventData]{ID: EventMediaPlayer}
+// MediaEvents returns an event interface to subscribe to media events.
+func MediaEvents() EventGroup[MediaData, MediaData] {
+	return EventGroup[MediaData, MediaData]{ID: EventMediaPlayer}
 }
 
-// FileTransferEvent returns an event interface to subscribe to file transfer events.
-func FileTransferEvents(action ...EventAction) EventGroup[FileTransferData, FileTransferEventData] {
-	return EventGroup[FileTransferData, FileTransferEventData]{ID: EventFileTransfer}
+// ObjectPushEvents returns an event interface to subscribe to file transfer events.
+func ObjectPushEvents() EventGroup[ObjectPushData, ObjectPushEventData] {
+	return EventGroup[ObjectPushData, ObjectPushEventData]{ID: EventObjectPush}
 }
 
-// ErrorEvent returns an event interface to subscribe to error events.
-func ErrorEvents(err ...error) EventGroup[errorkinds.GenericError, struct{}] {
-	return EventGroup[errorkinds.GenericError, struct{}]{ID: EventError}
+// ErrorEvents returns an event interface to subscribe to error events.
+func ErrorEvents() EventGroup[errorkinds.GenericError, emptyUpdatedDataEvent] {
+	return EventGroup[errorkinds.GenericError, emptyUpdatedDataEvent]{ID: EventError}
 }

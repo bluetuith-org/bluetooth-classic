@@ -41,7 +41,10 @@ const (
 	ObexAgentIface        = "org.bluez.obex.Agent1"
 	ObexAgentManagerIface = "org.bluez.obex.AgentManager1"
 	ObexAgentManagerPath  = dbus.ObjectPath("/org/bluez/obex")
-	ObexAgentPath         = dbus.ObjectPath("/org/bluez/obex/agent/bluerestd")
 )
 
+// ObexAgentPath is a randomized path for registering a Bluez Obex Agent.
+var ObexAgentPath = dbus.ObjectPath("/org/bluez/obex/agent/obexagent" + xid.New().String())
+
+// BluezAgentPath is a randomized path for registering a Bluez Agent.
 var BluezAgentPath = dbus.ObjectPath("/org/bluez/agent/blueagent" + xid.New().String())

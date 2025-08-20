@@ -21,22 +21,22 @@ type obex struct {
 	Address bluetooth.MacAddress
 }
 
-// obexFileTransfer describes a file transfer session.
-type obexFileTransfer struct {
+// obexObjectPush describes a file transfer session.
+type obexObjectPush struct {
 	*obex
 }
 
-// FileTransfer returns a function call interface to invoke device file transfer
+// ObjectPush returns a function call interface to invoke device file transfer
 // related functions.
-func (o *obex) FileTransfer() bluetooth.ObexFileTransfer {
-	return &obexFileTransfer{o}
+func (o *obex) ObjectPush() bluetooth.ObexObjectPush {
+	return &obexObjectPush{o}
 }
 
 // CreateSession creates a new Obex session with a device.
 // The context (ctx) can be provided in case this function call
 // needs to be cancelled, since this function call can take some time
 // to complete.
-func (o *obexFileTransfer) CreateSession(ctx context.Context) error {
+func (o *obexObjectPush) CreateSession(ctx context.Context) error {
 	if err := o.check(); err != nil {
 		return err
 	}
@@ -50,27 +50,28 @@ func (o *obexFileTransfer) CreateSession(ctx context.Context) error {
 }
 
 // RemoveSession removes a created Obex session.
-func (o *obexFileTransfer) RemoveSession() error {
+func (o *obexObjectPush) RemoveSession() error {
 	if err := o.check(); err != nil {
 		return err
 	}
 
-	_, err := commands.RemoveSession().ExecuteWith(o.s.executor)
+	_, err := commands.RemoveSession(o.Address).ExecuteWith(o.s.executor)
 	return err
 }
 
 // SendFile sends a file to the device. The 'filepath' must be a full path to the file.
-func (o *obexFileTransfer) SendFile(filepath string) (bluetooth.FileTransferData, error) {
+func (o *obexObjectPush) SendFile(filepath string) (bluetooth.ObjectPushData, error) {
 	if err := o.check(); err != nil {
-		return bluetooth.FileTransferData{}, err
+		return bluetooth.ObjectPushData{}, err
 	}
 
-	filetransfer, err := commands.SendFile(filepath).ExecuteWith(o.s.executor)
+	filetransfer, err := commands.SendFile(o.Address, filepath).ExecuteWith(o.s.executor)
+
 	return filetransfer, err
 }
 
 // CancelTransfer cancels the transfer.
-func (o *obexFileTransfer) CancelTransfer() error {
+func (o *obexObjectPush) CancelTransfer() error {
 	if err := o.check(); err != nil {
 		return err
 	}
@@ -80,7 +81,7 @@ func (o *obexFileTransfer) CancelTransfer() error {
 }
 
 // SuspendTransfer suspends the transfer.
-func (o *obexFileTransfer) SuspendTransfer() error {
+func (o *obexObjectPush) SuspendTransfer() error {
 	if err := o.check(); err != nil {
 		return err
 	}
@@ -90,7 +91,7 @@ func (o *obexFileTransfer) SuspendTransfer() error {
 }
 
 // ResumeTransfer resumes the transfer.
-func (o *obexFileTransfer) ResumeTransfer() error {
+func (o *obexObjectPush) ResumeTransfer() error {
 	if err := o.check(); err != nil {
 		return err
 	}
@@ -99,7 +100,7 @@ func (o *obexFileTransfer) ResumeTransfer() error {
 	return err
 }
 
-func (o *obexFileTransfer) check() error {
+func (o *obexObjectPush) check() error {
 	switch {
 	case o.s == nil || o.s.sessionClosed.Load():
 		return fault.Wrap(errorkinds.ErrSessionNotExist,

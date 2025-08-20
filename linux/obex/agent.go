@@ -84,6 +84,14 @@ func (o *agent) remove() error {
 	return o.callObexAgentManager("UnregisterAgent", dbh.ObexAgentPath).Store()
 }
 
+// makeError creates a custom error.
+func (o *agent) makeError() *dbus.Error {
+	return &dbus.Error{
+		Name: "org.bluez.obex.Error.Rejected",
+		Body: []any{"Rejected"},
+	}
+}
+
 // AuthorizePush asks for confirmation before receiving a transfer from the host device.
 func (o *agent) AuthorizePush(transferPath dbus.ObjectPath) (string, *dbus.Error) {
 	sessionPath := dbus.ObjectPath(filepath.Dir(string(transferPath)))
@@ -95,7 +103,7 @@ func (o *agent) AuthorizePush(transferPath dbus.ObjectPath) (string, *dbus.Error
 			"error_at", "authpush-session-properties",
 		)
 
-		return "", dbus.MakeFailedError(err)
+		return "", o.makeError()
 	}
 
 	transferProperty, err := o.transferProperties(transferPath)
@@ -105,7 +113,7 @@ func (o *agent) AuthorizePush(transferPath dbus.ObjectPath) (string, *dbus.Error
 			"error_at", "authpush-transfer-properties",
 		)
 
-		return "", dbus.MakeFailedError(err)
+		return "", o.makeError()
 	}
 
 	if sessionProperty.Root == "" {
@@ -114,7 +122,7 @@ func (o *agent) AuthorizePush(transferPath dbus.ObjectPath) (string, *dbus.Error
 			"error_at", "authpush-session-rootdest",
 		)
 
-		return "", dbus.MakeFailedError(errors.New("session property empty"))
+		return "", o.makeError()
 	}
 
 	if transferProperty.Status == bluetooth.TransferError {
@@ -123,7 +131,7 @@ func (o *agent) AuthorizePush(transferPath dbus.ObjectPath) (string, *dbus.Error
 			"error_at", "authpush-transfer-status",
 		)
 
-		return "", dbus.MakeFailedError(errors.New("transfer property empty"))
+		return "", o.makeError()
 	}
 
 	transferProperty.Address = sessionProperty.Destination
@@ -132,17 +140,18 @@ func (o *agent) AuthorizePush(transferPath dbus.ObjectPath) (string, *dbus.Error
 	o.ctx = bluetooth.NewAuthTimeout(o.authTimeout)
 	defer o.Cancel()
 
-	if err := o.authHandler.AuthorizeTransfer(o.ctx, transferProperty); err != nil {
+	transferProperty.Name = ""
+	transferProperty.Filename = path
+	bluetooth.ObjectPushEvents().PublishAdded(transferProperty.ObjectPushData)
+
+	if err := o.authHandler.AuthorizeTransfer(o.ctx, transferProperty.ObjectPushData); err != nil {
 		dbh.PublishError(err,
 			"OBEX agent error: Transfer was not authorized",
 			"error_at", "authpush-agent-authorize",
 		)
 
-		return "", dbus.MakeFailedError(err)
+		return "", o.makeError()
 	}
-
-	dbh.PathConverter.AddDbusPath(dbh.DbusPathObexSession, sessionPath, o.Address)
-	dbh.PathConverter.AddDbusPath(dbh.DbusPathObexTransfer, transferPath, o.Address)
 
 	return path, nil
 }

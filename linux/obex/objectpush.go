@@ -16,14 +16,8 @@ import (
 )
 
 // fileTransfer describes a file transfer session.
-type fileTransfer Obex
-
-// obexSessionProperties holds properties for a created Obex session.
-type obexSessionProperties struct {
-	Root        string
-	Target      string
-	Source      string
-	Destination bluetooth.MacAddress
+type fileTransfer struct {
+	Obex
 }
 
 // CreateSession creates a new Obex session with a device.
@@ -119,17 +113,17 @@ func (o *fileTransfer) RemoveSession() error {
 }
 
 // SendFile sends a file to the device. The 'filepath' must be a full path to the file.
-func (o *fileTransfer) SendFile(filepath string) (bluetooth.FileTransferData, error) {
+func (o *fileTransfer) SendFile(filepath string) (bluetooth.ObjectPushData, error) {
 	if err := o.check(); err != nil {
-		return bluetooth.FileTransferData{}, err
+		return bluetooth.ObjectPushData{}, err
 	}
 
 	var transferPath dbus.ObjectPath
-	var fileTransferObject bluetooth.FileTransferData
+	var fileTransferObject bluetooth.ObjectPushData
 
 	sessionPath, ok := dbh.PathConverter.DbusPath(dbh.DbusPathObexSession, o.Address)
 	if !ok {
-		return bluetooth.FileTransferData{},
+		return bluetooth.ObjectPushData{},
 			fault.Wrap(
 				errorkinds.ErrPropertyDataParse,
 				fctx.With(context.Background(),
@@ -144,7 +138,7 @@ func (o *fileTransfer) SendFile(filepath string) (bluetooth.FileTransferData, er
 	transferPropertyMap := make(map[string]dbus.Variant)
 	if err := o.callObjectPush(sessionPath, "SendFile", filepath).
 		Store(&transferPath, &transferPropertyMap); err != nil {
-		return bluetooth.FileTransferData{},
+		return bluetooth.ObjectPushData{},
 			fault.Wrap(
 				err,
 				fctx.With(context.Background(),
@@ -159,7 +153,7 @@ func (o *fileTransfer) SendFile(filepath string) (bluetooth.FileTransferData, er
 	dbh.PathConverter.AddDbusPath(dbh.DbusPathObexTransfer, transferPath, o.Address)
 
 	if err := dbh.DecodeVariantMap(transferPropertyMap, &fileTransferObject); err != nil {
-		return bluetooth.FileTransferData{},
+		return bluetooth.ObjectPushData{},
 			fault.Wrap(
 				err,
 				fctx.With(context.Background(),
@@ -303,56 +297,4 @@ func (o *fileTransfer) check() error {
 	}
 
 	return nil
-}
-
-// callClient calls the Client1 interface with the provided method.
-func (o *fileTransfer) callClient(method string, args ...any) *dbus.Call {
-	return o.SessionBus.Object(dbh.ObexBusName, dbh.ObexBusPath).
-		Call(dbh.ObexClientIface+"."+method, 0, args...)
-}
-
-// callClientAsync calls the Client1 interface asynchronously with the provided method.
-func (o *fileTransfer) callClientAsync(ctx context.Context, method string, args ...any) *dbus.Call {
-	return o.SessionBus.Object(dbh.ObexBusName, dbh.ObexBusPath).
-		GoWithContext(ctx, dbh.ObexClientIface+"."+method, 0, nil, args...)
-}
-
-// callObjectPush calls the ObjectPush1 interface with the provided method.
-func (o *fileTransfer) callObjectPush(sessionPath dbus.ObjectPath, method string, args ...any) *dbus.Call {
-	return o.SessionBus.Object(dbh.ObexBusName, sessionPath).
-		Call(dbh.ObexObjectPushIface+"."+method, 0, args...)
-}
-
-// callTransfer calls the Transfer1 interface with the provided method.
-func (o *fileTransfer) callTransfer(transferPath dbus.ObjectPath, method string, args ...any) *dbus.Call {
-	return o.SessionBus.Object(dbh.ObexBusName, transferPath).
-		Call(dbh.ObexTransferIface+"."+method, 0, args...)
-}
-
-// sessionProperties converts a map of OBEX session properties to ObexSessionProperties.
-func (o *fileTransfer) sessionProperties(sessionPath dbus.ObjectPath) (obexSessionProperties, error) {
-	var sessionProperties obexSessionProperties
-
-	props := make(map[string]dbus.Variant)
-	if err := o.SessionBus.Object(dbh.ObexBusName, sessionPath).
-		Call(dbh.DbusGetAllPropertiesIface, 0, dbh.ObexSessionIface).
-		Store(&props); err != nil {
-		return obexSessionProperties{}, err
-	}
-
-	return sessionProperties, dbh.DecodeVariantMap(props, &sessionProperties)
-}
-
-// transferProperties converts a map of OBEX transfer properties to FileTransferData.
-func (o *fileTransfer) transferProperties(transferPath dbus.ObjectPath) (bluetooth.FileTransferData, error) {
-	var transferProperties bluetooth.FileTransferData
-
-	props := make(map[string]dbus.Variant)
-	if err := o.SessionBus.Object(dbh.ObexBusName, transferPath).
-		Call(dbh.DbusGetAllPropertiesIface, 0, dbh.ObexTransferIface).
-		Store(&props); err != nil {
-		return bluetooth.FileTransferData{}, err
-	}
-
-	return transferProperties, dbh.DecodeVariantMap(props, &transferProperties)
 }

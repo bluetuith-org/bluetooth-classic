@@ -3,10 +3,19 @@
 package events
 
 import (
+	"bytes"
+	"errors"
+	"io"
+
+	"github.com/ugorji/go/codec"
+
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	"github.com/bluetuith-org/bluetooth-classic/shim/internal/serde"
-	"github.com/ugorji/go/codec"
 )
+
+type RawEvents interface {
+	bluetooth.Events | AuthEventData
+}
 
 // ServerEvent describes a raw event that was sent from the server.
 type ServerEvent struct {
@@ -15,21 +24,39 @@ type ServerEvent struct {
 	Event       codec.Raw             `json:"event"`
 }
 
-// UnmarshalBluetoothEvent unmarshals a 'ServerEvent' to a bluetooth event.
-func UnmarshalBluetoothEvent[T bluetooth.Events](ev ServerEvent) (bluetooth.Event[T], error) {
-	var event bluetooth.Event[T]
+// Unmarshal unmarshals a 'ServerEvent' to a bluetooth event.
+func Unmarshal[T bluetooth.Events](ev ServerEvent) (T, error) {
+	var event T
 
-	unmarshalled := make(map[string]T, 1)
+	return event, UnmarshalRawEvent(ev, &event)
+}
 
-	if err := serde.UnmarshalJson(ev.Event, &unmarshalled); err != nil {
-		return event, err
+func UnmarshalRawEvent[T RawEvents](ev ServerEvent, marshalTo *T) error {
+	var read int
+
+	scanner := bytes.NewReader(ev.Event)
+	for {
+		c, err := scanner.ReadByte()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+
+			return err
+		}
+
+		if c == ':' {
+			break
+		}
+
+		read++
 	}
 
-	event.ID = ev.EventId
-	event.Action = ev.EventAction
-	for _, m := range unmarshalled {
-		event.Data = m
+	if read+1 >= len(ev.Event) {
+		return errors.New("adapter update decode error")
 	}
 
-	return event, nil
+	ev.Event = ev.Event[read+1:]
+
+	return serde.UnmarshalJson(ev.Event, marshalTo)
 }

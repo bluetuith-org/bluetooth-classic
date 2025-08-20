@@ -134,7 +134,7 @@ func main() {
 type authHandler struct {
 }
 
-func (a *authHandler) AuthorizeTransfer(timeout bluetooth.AuthTimeout, props bluetooth.FileTransferData) error {
+func (a *authHandler) AuthorizeTransfer(timeout bluetooth.AuthTimeout, props bluetooth.ObjectPushData) error {
     fmt.Println(props)
 	return nil
 }

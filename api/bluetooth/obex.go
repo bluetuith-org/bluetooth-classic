@@ -7,14 +7,14 @@ import (
 // Obex describes a function call interface to invoke Obex related functions
 // on specified devices.
 type Obex interface {
-	// FileTransfer returns a function call interface to invoke device file transfer
+	// ObjectPush returns a function call interface to invoke device file transfer
 	// related functions.
-	FileTransfer() ObexFileTransfer
+	ObjectPush() ObexObjectPush
 }
 
-// ObexFileTransfer describes a function call interface to manage file-transfer
+// ObexObjectPush describes a function call interface to manage file-transfer
 // related functions on specified devices.
-type ObexFileTransfer interface {
+type ObexObjectPush interface {
 	// CreateSession creates a new Obex session with a device.
 	// The context (ctx) can be provided in case this function call
 	// needs to be cancelled, since this function call can take some time
@@ -25,7 +25,7 @@ type ObexFileTransfer interface {
 	RemoveSession() error
 
 	// SendFile sends a file to the device. The 'filepath' must be a full path to the file.
-	SendFile(filepath string) (FileTransferData, error)
+	SendFile(filepath string) (ObjectPushData, error)
 
 	// CancelTransfer cancels the transfer.
 	CancelTransfer() error
@@ -37,20 +37,20 @@ type ObexFileTransfer interface {
 	ResumeTransfer() error
 }
 
-// FileTransferStatus describes the status of the file transfer.
-type FileTransferStatus string
+// ObjectPushStatus describes the status of the file transfer.
+type ObjectPushStatus string
 
 // The different transfer status types.
 const (
-	TransferQueued    FileTransferStatus = "queued"
-	TransferActive    FileTransferStatus = "active"
-	TransferSuspended FileTransferStatus = "suspended"
-	TransferComplete  FileTransferStatus = "complete"
-	TransferError     FileTransferStatus = "error"
+	TransferQueued    ObjectPushStatus = "queued"
+	TransferActive    ObjectPushStatus = "active"
+	TransferSuspended ObjectPushStatus = "suspended"
+	TransferComplete  ObjectPushStatus = "complete"
+	TransferError     ObjectPushStatus = "error"
 )
 
-// FileTransferData holds the static file transfer data for a device.
-type FileTransferData struct {
+// ObjectPushData holds the static file transfer data for a device.
+type ObjectPushData struct {
 	// Name is the name of the object being transferred.
 	Name string `json:"name,omitempty" codec:"Name,omitempty" doc:"The name of the object being transferred."`
 
@@ -60,17 +60,17 @@ type FileTransferData struct {
 	// Filename is the complete name of the file.
 	Filename string `json:"filename,omitempty" codec:"Filename,omitempty" doc:"The complete name of the file."`
 
-	FileTransferEventData
+	ObjectPushEventData
 }
 
-// FileTransferEventData holds the dynamic (variable) file transfer data for a device.
+// ObjectPushEventData holds the dynamic (variable) file transfer data for a device.
 // This is primarily used to send file transfer event related data.
-type FileTransferEventData struct {
+type ObjectPushEventData struct {
 	// Address holds the Bluetooth MAC address of the device.
 	Address MacAddress `json:"address,omitempty" codec:"Address,omitempty" doc:"The Bluetooth MAC address of the device."`
 
 	// Status indicates the file transfer status.
-	Status FileTransferStatus `json:"status,omitempty" codec:"Status,omitempty" enum:"queued,active,suspended,complete,error" doc:"Indicates the file transfer status."`
+	Status ObjectPushStatus `json:"status,omitempty" codec:"Status,omitempty" enum:"queued,active,suspended,complete,error" doc:"Indicates the file transfer status."`
 
 	// Size holds the total size of the file in bytes.
 	Size uint64 `json:"size,omitempty" codec:"Size,omitempty" doc:"The total size of the file in bytes."`
@@ -82,5 +82,5 @@ type FileTransferEventData struct {
 // AuthorizeReceiveFile describes an authentication interface, which is used
 // to authorize a file transfer being received, before starting the transfer.
 type AuthorizeReceiveFile interface {
-	AuthorizeTransfer(timeout AuthTimeout, props FileTransferData) error
+	AuthorizeTransfer(timeout AuthTimeout, props ObjectPushData) error
 }

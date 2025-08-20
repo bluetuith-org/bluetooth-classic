@@ -3,15 +3,16 @@
 package obex
 
 import (
+	"context"
 	"errors"
-	"path/filepath"
 	"time"
+
+	"github.com/godbus/dbus/v5"
 
 	ac "github.com/bluetuith-org/bluetooth-classic/api/appfeatures"
 	bluetooth "github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	errorkinds "github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
 	dbh "github.com/bluetuith-org/bluetooth-classic/linux/internal/dbushelper"
-	"github.com/godbus/dbus/v5"
 )
 
 // Obex describes a Bluez Obex session.
@@ -21,16 +22,36 @@ type Obex struct {
 }
 
 // ObexManager holds an OBEX session and agent.
+//
+//revive:disable
 type ObexManager struct {
-	agent      *agent
-	sessionBus *dbus.Conn
+	agent *agent
+
+	Obex
 }
 
+//revive:enable
+
 // NewManager returns a new ObexManager.
-func NewManager(sessionBus *dbus.Conn) *ObexManager {
+func NewManager(SessionBus *dbus.Conn) *ObexManager {
 	return &ObexManager{
-		sessionBus: sessionBus,
+		nil, Obex{SessionBus: SessionBus},
 	}
+}
+
+// obexSessionProperties holds properties for a created Obex session.
+type obexSessionProperties struct {
+	Root        string
+	Target      string
+	Source      string
+	Destination bluetooth.MacAddress
+}
+
+// obexTransferProperties holds the properties for a created Obex transfer.
+type obexTransferProperties struct {
+	Session string
+
+	bluetooth.ObjectPushData
 }
 
 // Initialize attempts to initialize the Obex Agent, and returns the capabilities of the
@@ -38,7 +59,7 @@ func NewManager(sessionBus *dbus.Conn) *ObexManager {
 func (o *ObexManager) Initialize(auth bluetooth.AuthorizeReceiveFile, authTimeout time.Duration) (ac.Features, *ac.Error) {
 	var capabilities ac.Features
 
-	serviceNames, err := dbh.ListActivatableBusNames(o.sessionBus)
+	serviceNames, err := dbh.ListActivatableBusNames(o.SessionBus)
 	if err != nil {
 		return capabilities,
 			ac.NewError(ac.FeatureSendFile|ac.FeatureReceiveFile, err)
@@ -57,11 +78,11 @@ func (o *ObexManager) Initialize(auth bluetooth.AuthorizeReceiveFile, authTimeou
 		)
 
 SetupAgent:
-	go o.watchObexSystemBus()
+	go o.watchObexSessionBus()
 
 	capabilities = ac.FeatureSendFile
 
-	o.agent = newAgent(auth, authTimeout, &fileTransfer{SessionBus: o.sessionBus})
+	o.agent = newAgent(auth, authTimeout, &fileTransfer{Obex{SessionBus: o.SessionBus}})
 	if err := o.agent.setup(); err != nil {
 		return capabilities,
 			ac.NewError(ac.FeatureReceiveFile, err)
@@ -77,19 +98,19 @@ func (o *ObexManager) Stop() error {
 	return o.agent.remove()
 }
 
-// FileTransfer returns a function call interface to invoke device file transfer
+// ObjectPush returns a function call interface to invoke device file transfer
 // related functions.
-func (o *Obex) FileTransfer() bluetooth.ObexFileTransfer {
-	return &fileTransfer{SessionBus: o.SessionBus, Address: o.Address}
+func (o *Obex) ObjectPush() bluetooth.ObexObjectPush {
+	return &fileTransfer{Obex{SessionBus: o.SessionBus, Address: o.Address}}
 }
 
-// watchObexSystemBus will register a signal and watch for events from the OBEX DBus interface.
-func (o *ObexManager) watchObexSystemBus() {
+// watchObexSessionBus will register a signal and watch for events from the OBEX DBus interface.
+func (o *ObexManager) watchObexSessionBus() {
 	signalMatch := "type='signal', sender='org.bluez.obex'"
-	o.sessionBus.BusObject().Call("org.freedesktop.DBus.AddMatch", 0, signalMatch)
+	o.SessionBus.BusObject().Call("org.freedesktop.DBus.AddMatch", 0, signalMatch)
 
-	ch := make(chan *dbus.Signal, 1)
-	o.sessionBus.Signal(ch)
+	ch := make(chan *dbus.Signal, 10)
+	o.SessionBus.Signal(ch)
 
 	for signal := range ch {
 		o.parseSignalData(signal)
@@ -98,9 +119,42 @@ func (o *ObexManager) watchObexSystemBus() {
 
 // parseSignalData parses OBEX DBus signal data.
 func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
-	// BUG: Handle session and transfer interfaces when files are received.
-	// BUG: dbh.DbusSignalPropertyAddedIface unhandled.
 	switch signal.Name {
+	case dbh.DbusSignalInterfacesAddedIface:
+		objectPath, ok := signal.Body[0].(dbus.ObjectPath)
+		if !ok {
+			return
+		}
+
+		nestedPropertyMap, ok := signal.Body[1].(map[string]map[string]dbus.Variant)
+		if !ok {
+			return
+		}
+
+		for iftype := range nestedPropertyMap {
+			switch iftype {
+			case dbh.ObexSessionIface:
+			case dbh.ObexTransferIface:
+				props, err := o.transferProperties(objectPath)
+				if err != nil {
+					continue
+				}
+
+				sessionProps, err := o.sessionProperties(dbus.ObjectPath(props.Session))
+				if err != nil {
+					continue
+				}
+
+				dbh.PathConverter.AddDbusPath(dbh.DbusPathObexSession, dbus.ObjectPath(props.Session), sessionProps.Destination)
+				dbh.PathConverter.AddDbusPath(dbh.DbusPathObexTransfer, dbus.ObjectPath(objectPath), sessionProps.Destination)
+
+				if props.Name != "" || props.Filename != "" {
+					props.Address = sessionProps.Destination
+					bluetooth.ObjectPushEvents().PublishAdded(props.ObjectPushData)
+				}
+			}
+		}
+
 	case dbh.DbusSignalPropertyChangedIface:
 		objectInterfaceName, ok := signal.Body[0].(string)
 		if !ok {
@@ -113,10 +167,10 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 		}
 
 		switch objectInterfaceName {
+		case dbh.ObexSessionIface:
 		case dbh.ObexTransferIface:
-			sessionPath := dbus.ObjectPath(filepath.Dir(string(signal.Path)))
+			address, ok := dbh.PathConverter.Address(dbh.DbusPathObexTransfer, signal.Path)
 
-			address, ok := dbh.PathConverter.Address(dbh.DbusPathObexSession, sessionPath)
 			if !ok {
 				dbh.PublishSignalError(errorkinds.ErrDeviceNotFound, signal,
 					"Obex event handler error",
@@ -126,7 +180,7 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 				return
 			}
 
-			transferData := bluetooth.FileTransferEventData{
+			transferData := bluetooth.ObjectPushEventData{
 				Address: address,
 			}
 			if err := dbh.DecodeVariantMap(
@@ -141,7 +195,7 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 				return
 			}
 
-			bluetooth.FileTransferEvents().PublishUpdated(transferData)
+			bluetooth.ObjectPushEvents().PublishUpdated(transferData)
 		}
 
 	case dbh.DbusSignalInterfacesRemovedIface:
@@ -171,7 +225,7 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 					return
 				}
 
-				bluetooth.FileTransferEvents().PublishRemoved(bluetooth.FileTransferEventData{
+				bluetooth.ObjectPushEvents().PublishRemoved(bluetooth.ObjectPushEventData{
 					Address: address,
 				})
 
@@ -179,4 +233,56 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 			}
 		}
 	}
+}
+
+// callClient calls the Client1 interface with the provided method.
+func (o *Obex) callClient(method string, args ...any) *dbus.Call {
+	return o.SessionBus.Object(dbh.ObexBusName, dbh.ObexBusPath).
+		Call(dbh.ObexClientIface+"."+method, 0, args...)
+}
+
+// callClientAsync calls the Client1 interface asynchronously with the provided method.
+func (o *Obex) callClientAsync(ctx context.Context, method string, args ...any) *dbus.Call {
+	return o.SessionBus.Object(dbh.ObexBusName, dbh.ObexBusPath).
+		GoWithContext(ctx, dbh.ObexClientIface+"."+method, 0, nil, args...)
+}
+
+// callObjectPush calls the ObjectPush1 interface with the provided method.
+func (o *Obex) callObjectPush(sessionPath dbus.ObjectPath, method string, args ...any) *dbus.Call {
+	return o.SessionBus.Object(dbh.ObexBusName, sessionPath).
+		Call(dbh.ObexObjectPushIface+"."+method, 0, args...)
+}
+
+// callTransfer calls the Transfer1 interface with the provided method.
+func (o *Obex) callTransfer(transferPath dbus.ObjectPath, method string, args ...any) *dbus.Call {
+	return o.SessionBus.Object(dbh.ObexBusName, transferPath).
+		Call(dbh.ObexTransferIface+"."+method, 0, args...)
+}
+
+// sessionProperties converts a map of OBEX session properties to ObexSessionProperties.
+func (o *Obex) sessionProperties(sessionPath dbus.ObjectPath) (obexSessionProperties, error) {
+	var sessionProperties obexSessionProperties
+
+	props := make(map[string]dbus.Variant)
+	if err := o.SessionBus.Object(dbh.ObexBusName, sessionPath).
+		Call(dbh.DbusGetAllPropertiesIface, 0, dbh.ObexSessionIface).
+		Store(&props); err != nil {
+		return obexSessionProperties{}, err
+	}
+
+	return sessionProperties, dbh.DecodeVariantMap(props, &sessionProperties)
+}
+
+// transferProperties converts a map of OBEX transfer properties to ObjectPushData.
+func (o *Obex) transferProperties(transferPath dbus.ObjectPath) (obexTransferProperties, error) {
+	var transferProperties obexTransferProperties
+
+	props := make(map[string]dbus.Variant)
+	if err := o.SessionBus.Object(dbh.ObexBusName, transferPath).
+		Call(dbh.DbusGetAllPropertiesIface, 0, dbh.ObexTransferIface).
+		Store(&props); err != nil {
+		return obexTransferProperties{}, err
+	}
+
+	return transferProperties, dbh.DecodeVariantMap(props, &transferProperties)
 }

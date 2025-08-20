@@ -43,12 +43,12 @@ func newAgent(systemBus *dbus.Conn, authHandler bluetooth.SessionAuthorizer, aut
 
 // setup creates a new BluezAgent, exports all its methods
 // to the bluez DBus interface, and registers the agent.
-func (a *agent) setup() error {
-	if a.authHandler == nil {
+func (b *agent) setup() error {
+	if b.authHandler == nil {
 		return errors.New("no authorization handler interface specified")
 	}
 
-	err := a.systemBus.Export(a, dbh.BluezAgentPath, dbh.BluezAgentIface)
+	err := b.systemBus.Export(b, dbh.BluezAgentPath, dbh.BluezAgentIface)
 	if err != nil {
 		return err
 	}
@@ -58,35 +58,35 @@ func (a *agent) setup() error {
 			introspect.IntrospectData,
 			{
 				Name:    dbh.BluezAgentIface,
-				Methods: introspect.Methods(a),
+				Methods: introspect.Methods(b),
 			},
 		},
 	}
 
-	if err := a.systemBus.Export(introspect.NewIntrospectable(node), dbh.BluezAgentPath, dbh.DbusIntrospectableIface); err != nil {
+	if err := b.systemBus.Export(introspect.NewIntrospectable(node), dbh.BluezAgentPath, dbh.DbusIntrospectableIface); err != nil {
 		return err
 	}
 
-	if err := a.callAgentManager("RegisterAgent", dbh.BluezAgentPath, "KeyboardDisplay").Store(); err != nil {
+	if err := b.callAgentManager("RegisterAgent", dbh.BluezAgentPath, "KeyboardDisplay").Store(); err != nil {
 		return err
 	}
 
-	if err := a.callAgentManager("RequestDefaultAgent", dbh.BluezAgentPath).Store(); err != nil {
+	if err := b.callAgentManager("RequestDefaultAgent", dbh.BluezAgentPath).Store(); err != nil {
 		return err
 	}
 
-	a.initialized = true
+	b.initialized = true
 
 	return nil
 }
 
 // remove removes the agent.
-func (a *agent) remove() error {
-	if !a.initialized {
+func (b *agent) remove() error {
+	if !b.initialized {
 		return nil
 	}
 
-	return a.callAgentManager("UnregisterAgent", dbh.BluezAgentPath).Store()
+	return b.callAgentManager("UnregisterAgent", dbh.BluezAgentPath).Store()
 }
 
 // RequestPinCode returns a predefined pincode to the agent's pincode request.

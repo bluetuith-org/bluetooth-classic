@@ -38,6 +38,11 @@ func AuthenticationReply(id int, input string) *Command[NoResult] {
 	})
 }
 
+// RegisterAgent registers the specified authentication agent with the daemon.
+func RegisterAgent(agent RpcAgent) *Command[NoResult] {
+	return (&Command[NoResult]{cmd: "rpc agent register"}).WithOption(AgentOption, agent.String())
+}
+
 // Adapter commands.
 // AdapterProperties invokes the "adapter properties" command.
 func AdapterProperties(Address bluetooth.MacAddress) *Command[bluetooth.AdapterData] {
@@ -137,13 +142,16 @@ func CreateSession(Address bluetooth.MacAddress) *Command[NoResult] {
 }
 
 // RemoveSession invokes the "device opp stop-session" command.
-func RemoveSession() *Command[NoResult] {
-	return (&Command[NoResult]{cmd: "device opp stop-session"})
+func RemoveSession(Address bluetooth.MacAddress) *Command[NoResult] {
+	return (&Command[NoResult]{cmd: "device opp stop-session"}).WithOption(AddressOption, Address.String())
 }
 
 // SendFile invokes the "device opp send-file" command.
-func SendFile(File string) *Command[bluetooth.FileTransferData] {
-	return (&Command[bluetooth.FileTransferData]{cmd: "device opp send-file"}).WithOption(FileOption, File)
+func SendFile(Address bluetooth.MacAddress, File string) *Command[bluetooth.ObjectPushData] {
+	return (&Command[bluetooth.ObjectPushData]{cmd: "device opp send-file"}).WithOptions(func(am OptionMap) {
+		am[AddressOption] = Address.String()
+		am[FileOption] = File
+	})
 }
 
 // CancelTransfer invokes the "device opp cancel-transfer" command.
@@ -188,6 +196,11 @@ func (c *Command[T]) ExecuteWith(fn ExecuteFunc, timeoutSeconds ...int) (T, erro
 		}
 
 		if response.Status == "ok" {
+			switch any(result).(type) {
+			case NoResult:
+				return result, nil
+			}
+
 			reply := make(map[string]T, 1)
 			if err := serde.UnmarshalJson(response.Data, &reply); err != nil {
 				return result, err

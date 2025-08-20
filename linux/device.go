@@ -166,7 +166,7 @@ func (d *device) Remove() error {
 		)
 	}
 
-	if err := d.b.adapter(adapterPath).callAdapter("RemoveDevice", 0, d.path).Store(); err != nil {
+	if err := d.b.adapterInternal(adapterPath).callAdapter("RemoveDevice", 0, d.path).Store(); err != nil {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "device-remove-methodcall",
@@ -320,7 +320,7 @@ func (d *device) convertAndStoreObjects(values map[string]dbus.Variant) (bluetoo
 		)
 	}
 
-	adapterMap, err := d.b.adapter(device.Adapter).adapterProperties()
+	adapterMap, err := d.b.adapterInternal(device.Adapter).adapterProperties()
 	if err != nil {
 		return device.DeviceData, fault.Wrap(errorkinds.ErrAdapterNotFound,
 			fctx.With(context.Background(),

@@ -36,7 +36,7 @@ func (a *AuthTimeout) Cancel() {
 type DefaultAuthorizer struct{}
 
 // AuthorizeTransfer accepts all file transfer authorization requests.
-func (DefaultAuthorizer) AuthorizeTransfer(AuthTimeout, FileTransferData) error {
+func (DefaultAuthorizer) AuthorizeTransfer(AuthTimeout, ObjectPushData) error {
 	return nil
 }
 

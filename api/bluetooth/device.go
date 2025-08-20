@@ -49,7 +49,7 @@ type AuthorizeDevicePairing interface {
 	DisplayPasskey(timeout AuthTimeout, address MacAddress, passkey uint32, entered uint16) error
 	ConfirmPasskey(timeout AuthTimeout, address MacAddress, passkey uint32) error
 	AuthorizePairing(timeout AuthTimeout, address MacAddress) error
-	AuthorizeService(timeout AuthTimeout, address MacAddress, uuid uuid.UUID) error
+	AuthorizeService(timeout AuthTimeout, address MacAddress, serviceUUID uuid.UUID) error
 }
 
 // DeviceData holds the static bluetooth device information installed for a system.
