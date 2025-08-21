@@ -49,6 +49,26 @@ const (
 	TransferError     ObjectPushStatus = "error"
 )
 
+type (
+	objectPushID string
+
+	// ObjectPushSessionID represents a session ID of an Object push object.
+	ObjectPushSessionID objectPushID
+
+	// ObjectPushTransferID represents a transfer ID of an Object Push object.
+	ObjectPushTransferID objectPushID
+)
+
+// String returns a string version of the session ID.
+func (o ObjectPushSessionID) String() string {
+	return string(o)
+}
+
+// String returns a string version of the transfer ID.
+func (o ObjectPushTransferID) String() string {
+	return string(o)
+}
+
 // ObjectPushData holds the static file transfer data for a device.
 type ObjectPushData struct {
 	// Name is the name of the object being transferred.
@@ -59,6 +79,9 @@ type ObjectPushData struct {
 
 	// Filename is the complete name of the file.
 	Filename string `json:"filename,omitempty" codec:"Filename,omitempty" doc:"The complete name of the file."`
+
+	// Receiving specifies whether this transfer is being received or not.
+	Receiving bool `json:"receiving,omitempty" codec:"" doc:"Specifies whether this transfer is being received or not."`
 
 	ObjectPushEventData
 }
@@ -77,6 +100,12 @@ type ObjectPushEventData struct {
 
 	// Transferred holds the current number of bytes that was sent to the receiver.
 	Transferred uint64 `json:"transferred,omitempty" codec:"Transferred,omitempty" doc:"The current number of bytes that was sent to the receiver."`
+
+	// TransferID holds the ID of the transferring item.
+	TransferID ObjectPushTransferID `json:"transfer_id,omitempty" codec:"" doc:"The ID of the transferring item."`
+
+	// SessionID holds the ID of the session that this transferring item belongs to.
+	SessionID ObjectPushSessionID `json:"session_id,omitempty" codec:"Session,omitempty" doc:"The ID of the session that this transferring item belongs to."`
 }
 
 // AuthorizeReceiveFile describes an authentication interface, which is used

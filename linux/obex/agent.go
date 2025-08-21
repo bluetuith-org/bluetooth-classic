@@ -134,15 +134,11 @@ func (o *agent) AuthorizePush(transferPath dbus.ObjectPath) (string, *dbus.Error
 		return "", o.makeError()
 	}
 
-	transferProperty.Address = sessionProperty.Destination
+	bluetooth.ObjectPushEvents().PublishAdded(transferProperty.appendExtra(transferPath, sessionProperty.Destination, struct{}{}).ObjectPushData)
 
 	path := filepath.Join(sessionProperty.Root, transferProperty.Name)
 	o.ctx = bluetooth.NewAuthTimeout(o.authTimeout)
 	defer o.Cancel()
-
-	transferProperty.Name = ""
-	transferProperty.Filename = path
-	bluetooth.ObjectPushEvents().PublishAdded(transferProperty.ObjectPushData)
 
 	if err := o.authHandler.AuthorizeTransfer(o.ctx, transferProperty.ObjectPushData); err != nil {
 		dbh.PublishError(err,

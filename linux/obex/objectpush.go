@@ -119,7 +119,7 @@ func (o *fileTransfer) SendFile(filepath string) (bluetooth.ObjectPushData, erro
 	}
 
 	var transferPath dbus.ObjectPath
-	var fileTransferObject bluetooth.ObjectPushData
+	var fileTransferObject obexTransferProperties
 
 	sessionPath, ok := dbh.PathConverter.DbusPath(dbh.DbusPathObexSession, o.Address)
 	if !ok {
@@ -150,6 +150,7 @@ func (o *fileTransfer) SendFile(filepath string) (bluetooth.ObjectPushData, erro
 			)
 	}
 
+	fileTransferObject.appendExtra(transferPath, o.Address)
 	dbh.PathConverter.AddDbusPath(dbh.DbusPathObexTransfer, transferPath, o.Address)
 
 	if err := dbh.DecodeVariantMap(transferPropertyMap, &fileTransferObject); err != nil {
@@ -165,8 +166,7 @@ func (o *fileTransfer) SendFile(filepath string) (bluetooth.ObjectPushData, erro
 			)
 	}
 
-	fileTransferObject.Address = o.Address
-	return fileTransferObject, nil
+	return fileTransferObject.ObjectPushData, nil
 }
 
 // CancelTransfer cancels the transfer.

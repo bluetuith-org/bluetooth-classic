@@ -5,6 +5,7 @@ package obex
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"time"
 
 	"github.com/godbus/dbus/v5"
@@ -49,8 +50,6 @@ type obexSessionProperties struct {
 
 // obexTransferProperties holds the properties for a created Obex transfer.
 type obexTransferProperties struct {
-	Session string
-
 	bluetooth.ObjectPushData
 }
 
@@ -135,21 +134,21 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 			switch iftype {
 			case dbh.ObexSessionIface:
 			case dbh.ObexTransferIface:
-				props, err := o.transferProperties(objectPath)
+				var props obexTransferProperties
+				if err := dbh.DecodeVariantMap(nestedPropertyMap[iftype], &props.ObjectPushData); err != nil {
+					continue
+				}
+
+				sessionProps, err := o.sessionProperties(dbus.ObjectPath(props.SessionID))
 				if err != nil {
 					continue
 				}
 
-				sessionProps, err := o.sessionProperties(dbus.ObjectPath(props.Session))
-				if err != nil {
-					continue
-				}
-
-				dbh.PathConverter.AddDbusPath(dbh.DbusPathObexSession, dbus.ObjectPath(props.Session), sessionProps.Destination)
+				dbh.PathConverter.AddDbusPath(dbh.DbusPathObexSession, dbus.ObjectPath(props.SessionID), sessionProps.Destination)
 				dbh.PathConverter.AddDbusPath(dbh.DbusPathObexTransfer, dbus.ObjectPath(objectPath), sessionProps.Destination)
 
-				if props.Name != "" || props.Filename != "" {
-					props.Address = sessionProps.Destination
+				if props.Filename != "" {
+					props.appendExtra(objectPath, sessionProps.Destination)
 					bluetooth.ObjectPushEvents().PublishAdded(props.ObjectPushData)
 				}
 			}
@@ -180,9 +179,9 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 				return
 			}
 
-			transferData := bluetooth.ObjectPushEventData{
-				Address: address,
-			}
+			transferData := obexTransferProperties{}
+			transferData.appendExtra(signal.Path, address)
+
 			if err := dbh.DecodeVariantMap(
 				propertyMap, &transferData,
 				"Status", "Transferred",
@@ -195,7 +194,7 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 				return
 			}
 
-			bluetooth.ObjectPushEvents().PublishUpdated(transferData)
+			bluetooth.ObjectPushEvents().PublishUpdated(transferData.ObjectPushEventData)
 		}
 
 	case dbh.DbusSignalInterfacesRemovedIface:
@@ -225,9 +224,10 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 					return
 				}
 
-				bluetooth.ObjectPushEvents().PublishRemoved(bluetooth.ObjectPushEventData{
-					Address: address,
-				})
+				var props obexTransferProperties
+				props.appendExtra(objectPath, address)
+
+				bluetooth.ObjectPushEvents().PublishRemoved(props.ObjectPushEventData)
 
 				dbh.PathConverter.RemoveDbusPath(dbh.DbusPathObexTransfer, objectPath)
 			}
@@ -284,5 +284,18 @@ func (o *Obex) transferProperties(transferPath dbus.ObjectPath) (obexTransferPro
 		return obexTransferProperties{}, err
 	}
 
-	return transferProperties, dbh.DecodeVariantMap(props, &transferProperties)
+	return *transferProperties.appendExtra(transferPath, bluetooth.MacAddress{}), dbh.DecodeVariantMap(props, &transferProperties)
+}
+
+// appendExtra appends extra properties to the transfer item.
+func (t *obexTransferProperties) appendExtra(transferPath dbus.ObjectPath, address bluetooth.MacAddress, receiving ...struct{}) *obexTransferProperties {
+	t.TransferID = bluetooth.ObjectPushTransferID(string(transferPath))
+	t.SessionID = bluetooth.ObjectPushSessionID(filepath.Dir(t.TransferID.String()))
+	if !address.IsNil() {
+		t.Address = address
+	}
+
+	t.Receiving = receiving != nil
+
+	return t
 }
