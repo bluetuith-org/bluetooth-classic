@@ -31,9 +31,9 @@ This project is funded through [NGI Zero Core](https://nlnet.nl/core), a fund es
 ## Feature matrix
 |Features (APIs) / OS|Pairing            |Connection (Automatic/Profile-based)|Send/Receive Files (OBEX Object PUSH)|Network Tethering (PANU/DUN)|Media Control (AVRCP)|
 |--------------------|-------------------|------------------------------------|-------------------------------------|----------------------------|---------------------|
-|Linux               |:heavy_check_mark: |:heavy_check_mark:                  |:heavy_check_mark:                   |:heavy_check_mark:          |:heavy_check_mark:   |
-|Windows             |:heavy_check_mark: |:heavy_check_mark:                  |:heavy_check_mark:                   |Not yet implemented         |Not yet implemented  |
-|MacOS               |Not yet implemented|Not yet implemented                 |Not yet implemented                  |Not yet implemented         |Not yet implemented  |
+|Linux               |:heavy_check_mark: |:heavy_check_mark: (Yes/Yes)        |:heavy_check_mark:                   |:heavy_check_mark:          |:heavy_check_mark:   |
+|Windows             |:heavy_check_mark: |:heavy_check_mark: (Yes/Yes)        |:heavy_check_mark:                   |Not yet implemented         |Not yet implemented  |
+|MacOS               |:heavy_check_mark: |:heavy_check_mark: (Yes/No)         |:heavy_check_mark:                   |Not yet implemented         |Not yet implemented  |
 |FreeBSD             |Not yet implemented|Not yet implemented                 |Not yet implemented                  |Not yet implemented         |Not yet implemented  |
 
 ## Documentation
@@ -166,3 +166,4 @@ func (a *authHandler) AuthorizeService(timeout bluetooth.AuthTimeout, address bl
 
 
   
+
