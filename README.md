@@ -8,6 +8,7 @@ Since this is an alpha release, expect the API to change at any time.
 Currently, support is present for the following platforms:
 - Linux
 - Windows
+- MacOS
 
 ## Funding
 
@@ -24,7 +25,7 @@ This project is funded through [NGI Zero Core](https://nlnet.nl/core), a fund es
   - ModemManager (optional, required for DUN)
   - PulseAudio (optional, required to manage device audio profiles)
 
-- Windows
+- Windows/MacOS
   - [haraltd](https://github.com/bluetuith-org/haraltd)
   - Start the server before using this library (i.e using the `server start` command)
 
@@ -166,4 +167,5 @@ func (a *authHandler) AuthorizeService(timeout bluetooth.AuthTimeout, address bl
 
 
   
+
 
