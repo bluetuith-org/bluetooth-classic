@@ -54,8 +54,8 @@ func DecodeVariantMap(
 	if !variantDecoder.check {
 		handle := codec.JsonHandle{}
 		handle.TypeInfos = codec.NewTypeInfos([]string{"codec"})
-		handle.SetInterfaceExt(reflect.TypeOf(dbus.Variant{}), 1, variantExt{})
-		handle.SetInterfaceExt(reflect.TypeOf((*dbus.Variant)(nil)), 1, variantExt{})
+		handle.SetInterfaceExt(reflect.TypeFor[dbus.Variant](), 1, variantExt{})
+		handle.SetInterfaceExt(reflect.TypeFor[*dbus.Variant](), 1, variantExt{})
 
 		variantDecoder.encoder = codec.NewEncoderBytes(&variantDecoder.data, &handle)
 		variantDecoder.decoder = codec.NewDecoderBytes(variantDecoder.data, &handle)
