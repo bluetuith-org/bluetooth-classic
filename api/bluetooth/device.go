@@ -1,6 +1,7 @@
 package bluetooth
 
 import (
+	"github.com/bluetuith-org/bluetooth-classic/api/optional"
 	"github.com/google/uuid"
 )
 
@@ -54,20 +55,12 @@ type AuthorizeDevicePairing interface {
 
 // DeviceData holds the static bluetooth device information installed for a system.
 type DeviceData struct {
-	// Name holds the name of the device.
-	Name string `json:"name,omitempty" codec:"Name,omitempty" doc:"The name of the device."`
-
 	// Class holds the device type class specifier.
 	Class uint32 `json:"class,omitempty" codec:"Class,omitempty" doc:"The device type class specifier."`
 
 	// Type holds the type name of the device.
 	// For example, type of the device can be "Phone", "Headset" etc.
 	Type string `json:"type,omitempty" codec:"Type,omitempty" doc:"The type name of the device. For example, type of the device can be 'Phone', 'Headset' etc."`
-
-	// Alias holds the optional or user-assigned name for the adapter.
-	// Usually valid for Linux systems, may be empty or equate to "Name"
-	// for other systems.
-	Alias string `json:"alias,omitempty" codec:"Alias,omitempty" doc:"The optional or user-assigned name for the adapter. Usually valid for Linux systems, may be empty or equate to **name** for other systems."`
 
 	// LegacyPairing indicates whether the device only supports the pre-2.1 pairing mechanism.
 	// This property is useful during device discovery to anticipate whether
@@ -87,33 +80,41 @@ type DeviceEventData struct {
 	// the device is associated with.
 	AssociatedAdapter MacAddress `json:"associated_adapter,omitempty" codec:"AssociatedAdapter,omitempty" doc:"The Bluetooth MAC address of the adapter the device is associated with."`
 
+	// Name holds the name of the device.
+	Name optional.Optional[string] `json:"name,omitzero" codec:"Name,omitempty" doc:"The name of the device."`
+
+	// Alias holds the optional or user-assigned name for the adapter.
+	// Usually valid for Linux systems, may be empty or equate to "Name"
+	// for other systems.
+	Alias optional.Optional[string] `json:"alias,omitzero" codec:"Alias,omitempty" doc:"The optional or user-assigned name for the adapter. Usually valid for Linux systems, may be empty or equate to **name** for other systems."`
+
 	// Paired indicates if the device is paired.
-	Paired bool `json:"paired,omitempty" codec:"Paired,omitempty" doc:"Indicates if the device is paired."`
+	Paired optional.Optional[bool] `json:"paired,omitzero" codec:"Paired,omitempty" doc:"Indicates if the device is paired."`
 
 	// Connected indicates if the device is connected.
-	Connected bool `json:"connected,omitempty" codec:"Connected,omitempty" doc:"Indicates if the device is connected."`
+	Connected optional.Optional[bool] `json:"connected,omitzero" codec:"Connected,omitempty" doc:"Indicates if the device is connected."`
 
 	// Trusted indicates if the device is marked as trusted.
 	// Valid only on Linux systems, will equate to "true"
 	// on other systems if the device is paired.
-	Trusted bool `json:"trusted,omitempty" codec:"Trusted,omitempty" doc:"Indicates if the device is marked as trusted. Valid only on Linux systems, will equate to 'true' on other systems if the device is paired."`
+	Trusted optional.Optional[bool] `json:"trusted,omitzero" codec:"Trusted,omitempty" doc:"Indicates if the device is marked as trusted. Valid only on Linux systems, will equate to 'true' on other systems if the device is paired."`
 
 	// Blocked indicates if the device is marked as blocked.
 	// Valid only on Linux systems, will equate to "false"
 	// on other systems.
-	Blocked bool `json:"blocked,omitempty" codec:"Blocked,omitempty" doc:"Indicates if the device is marked as blocked. Valid only on Linux systems, will equate to 'false' on other systems."`
+	Blocked optional.Optional[bool] `json:"blocked,omitzero" codec:"Blocked,omitempty" doc:"Indicates if the device is marked as blocked. Valid only on Linux systems, will equate to 'false' on other systems."`
 
 	// Bonded indicates if the device is bonded.
-	Bonded bool `json:"bonded,omitempty" codec:"Bonded,omitempty" doc:"Indicates if the device is bonded."`
+	Bonded optional.Optional[bool] `json:"bonded,omitzero" codec:"Bonded,omitempty" doc:"Indicates if the device is bonded."`
 
 	// RSSI indicates the signal strength of the device.
-	RSSI int16 `json:"rssi,omitempty" codec:"RSSI,omitempty" doc:"Indicates the signal strength of the device."`
+	RSSI optional.Optional[int16] `json:"rssi,omitzero" codec:"RSSI,omitempty" doc:"Indicates the signal strength of the device."`
 
 	// Percentage holds the battery percentage of the device.
-	Percentage int `json:"percentage,omitempty" codec:"Percentage,omitempty" minimum:"0" maximum:"100" doc:"The battery percentage of the device."`
+	Percentage optional.Optional[uint32] `json:"percentage,omitzero" codec:"Percentage,omitempty" minimum:"0" maximum:"100" doc:"The battery percentage of the device."`
 
 	// UUIDs holds the device-supported Bluetooth profile UUIDs.
-	UUIDs []string `json:"uuids,omitempty" codec:"UUIDs,omitempty" doc:"The device-supported Bluetooth profile UUIDs."`
+	UUIDs uuid.UUIDs `json:"uuids,omitempty" codec:"UUIDs,omitempty" doc:"The device-supported Bluetooth profile UUIDs."`
 }
 
 // HaveService returns if the device advertises a specific service (Bluetooth profile).

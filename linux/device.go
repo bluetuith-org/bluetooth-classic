@@ -11,6 +11,7 @@ import (
 	"github.com/Southclaws/fault/ftag"
 	bluetooth "github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	errorkinds "github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
+	"github.com/bluetuith-org/bluetooth-classic/api/optional"
 	dbh "github.com/bluetuith-org/bluetooth-classic/linux/internal/dbushelper"
 	"github.com/godbus/dbus/v5"
 	"github.com/google/uuid"
@@ -350,7 +351,7 @@ func (d *device) convertAndStoreObjects(values map[string]dbus.Variant) (bluetoo
 	device.Type = bluetooth.DeviceTypeFromClass(device.Class)
 
 	if p, err := d.batteryPercentage(); err == nil {
-		device.Percentage = int(p)
+		device.Percentage = optional.New(uint32(p))
 	}
 
 	dbh.PathConverter.AddDbusPath(dbh.DbusPathDevice, d.path, device.Address)

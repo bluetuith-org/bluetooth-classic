@@ -33,12 +33,12 @@ const (
 // eventNames holds names of different events.
 var (
 	eventNames = map[EventID]string{
-		EventNone:         "",
-		EventError:        "error_event",
-		EventAdapter:      "adapter_event",
-		EventDevice:       "device_event",
-		EventObjectPush: "file_transfer_event",
-		EventMediaPlayer:  "media_player_event",
+		EventNone:        "",
+		EventError:       "error_event",
+		EventAdapter:     "adapter_event",
+		EventDevice:      "device_event",
+		EventObjectPush:  "file_transfer_event",
+		EventMediaPlayer: "media_player_event",
 	}
 )
 

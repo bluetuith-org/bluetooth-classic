@@ -1,6 +1,9 @@
 package bluetooth
 
-import "github.com/google/uuid"
+import (
+	"github.com/bluetuith-org/bluetooth-classic/api/optional"
+	"github.com/google/uuid"
+)
 
 // Adapter describes a function call interface to invoke adapter related functions.
 type Adapter interface {
@@ -31,23 +34,10 @@ type Adapter interface {
 
 // AdapterData holds the static bluetooth adapter information installed for a system.
 type AdapterData struct {
-	// Name holds the system-assigned name of the adapter.
-	// This usually can be the hostname of the PC,
-	// and optionally appended by a number if more adapters are present.
-	Name string `json:"name,omitempty" codec:"Name,omitempty" doc:"The system-assigned name of the adapter. This usually can be the hostname of the PC, and optionally appended by a number if more adapters are present."`
-
-	// Alias holds the optional or user-assigned name for the adapter.
-	// Usually valid for Linux systems, may be empty or equate to "Name"
-	// for other systems.
-	Alias string `json:"alias,omitempty" codec:"Alias,omitempty" doc:"The optional or user-assigned name for the adapter. Usually valid for Linux systems, may be empty or equate to **name** for other systems."`
-
 	// UniqueName holds a unique name for the adapter.
 	// For example, on Linux it can be "hci0".
 	// For other systems, it can equate to "Name".
 	UniqueName string `json:"unique_name,omitempty" codec:"UniqueName,omitempty" doc:"A unique name for the adapter. For example, on Linux it can be 'hci0', and for other systems, it can equate to **name**."`
-
-	// UUIDs holds all the supported profile uuids.
-	UUIDs uuid.UUIDs `json:"uuids,omitempty" codec:"UUIDs,omitempty" doc:"All the supported Bluetooth service profile UUIDs."`
 
 	AdapterEventData
 }
@@ -56,17 +46,30 @@ type AdapterData struct {
 // This is primarily used to send adapter event related data.
 type AdapterEventData struct {
 	// Address holds the Bluetooth MAC address of the adapter.
-	Address MacAddress `json:"address,omitempty" codec:"Address,omitempty" doc:"The Bluetooth MAC address of the adapter."`
+	Address MacAddress `json:"address,omitzero" codec:"Address,omitempty" doc:"The Bluetooth MAC address of the adapter."`
+
+	// Name holds the system-assigned name of the adapter.
+	// This usually can be the hostname of the PC,
+	// and optionally appended by a number if more adapters are present.
+	Name optional.Optional[string] `json:"name,omitzero" codec:"Name,omitempty" doc:"The system-assigned name of the adapter. This usually can be the hostname of the PC, and optionally appended by a number if more adapters are present."`
+
+	// Alias holds the optional or user-assigned name for the adapter.
+	// Usually valid for Linux systems, may be empty or equate to "Name"
+	// for other systems.
+	Alias optional.Optional[string] `json:"alias,omitzero" codec:"Alias,omitempty" doc:"The optional or user-assigned name for the adapter. Usually valid for Linux systems, may be empty or equate to **name** for other systems."`
 
 	// Discoverable indicates whether the adapter is discoverable by other devices.
-	Discoverable bool `json:"discoverable,omitempty" codec:"Discoverable,omitempty" doc:"Indicates whether the adapter is discoverable by other devices."`
+	Discoverable optional.Optional[bool] `json:"discoverable,omitzero" codec:"Discoverable,omitempty" doc:"Indicates whether the adapter is discoverable by other devices."`
 
 	// Pairable indicates whether the adapter is pairable with other devices.
-	Pairable bool `json:"pairable,omitempty" codec:"Pairable,omitempty" doc:"Indicates whether the adapter is pairable with other devices."`
+	Pairable optional.Optional[bool] `json:"pairable,omitzero" codec:"Pairable,omitempty" doc:"Indicates whether the adapter is pairable with other devices."`
 
 	// Powered indicates whether the adapter is powered on or off.
-	Powered bool `json:"powered,omitempty" codec:"Powered,omitempty" doc:"Indicates whether the adapter is powered on or off."`
+	Powered optional.Optional[bool] `json:"powered,omitzero" codec:"Powered,omitempty" doc:"Indicates whether the adapter is powered on or off."`
 
 	// Discovering indicates whether the adapter is discovering devices.
-	Discovering bool `json:"discovering,omitempty" codec:"Discovering,omitempty" doc:"Indicates whether the adapter is discovering devices."`
+	Discovering optional.Optional[bool] `json:"discovering,omitzero" codec:"Discovering,omitempty" doc:"Indicates whether the adapter is discovering devices."`
+
+	// UUIDs holds all the supported profile uuids.
+	UUIDs uuid.UUIDs `json:"uuids,omitempty" codec:"UUIDs,omitempty" doc:"All the supported Bluetooth service profile UUIDs."`
 }
