@@ -35,8 +35,8 @@ func init() {
 	}
 }
 
-// MarshalJson marshals a value of a specific type to UTF-8 bytes.
-func MarshalJson[T any](v T) ([]byte, error) {
+// MarshalJSON marshals a value of a specific type to UTF-8 bytes.
+func MarshalJSON[T any](v T) ([]byte, error) {
 	gendecoder.jsonMu.Lock()
 	defer gendecoder.jsonMu.Unlock()
 
@@ -46,8 +46,8 @@ func MarshalJson[T any](v T) ([]byte, error) {
 	return gendecoder.jsonData, gendecoder.jsonEncoder.Encode(v)
 }
 
-// UnmarshalJson unmarshals the provided JSON as bytes to the value of a specific type.
-func UnmarshalJson[T any](data []byte, marshalTo T) error {
+// UnmarshalJSON unmarshals the provided JSON as bytes to the value of a specific type.
+func UnmarshalJSON[T any](data []byte, marshalTo T) error {
 	gendecoder.jsonMu.Lock()
 	defer gendecoder.jsonMu.Unlock()
 

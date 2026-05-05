@@ -23,7 +23,7 @@ import (
 
 // Network holds the network manager and active connections.
 type Network struct {
-	Address bluetooth.MacAddress
+	Key bluetooth.DeviceAddress
 
 	*NetManager
 	bluetooth.NetworkDunSettings
@@ -38,13 +38,13 @@ type NetManager struct {
 
 // connectionSettings holds a device's network connection settings.
 type connectionSettings struct {
-	Name    string
-	Address bluetooth.MacAddress
+	Name string
 
 	ConnectionType bluetooth.NetworkType
 	ConnectionUUID uuid.UUID
 
 	bluetooth.NetworkDunSettings
+	bluetooth.DeviceAddress
 }
 
 // Initialize initializes and returns a new NetManager.
@@ -75,7 +75,8 @@ func (n *Network) Connect(name string, nt bluetooth.NetworkType) error {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "network-connect-active",
-				"address", n.Address.String(),
+				"address", n.Key.Address.String(),
+				"adapter", n.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot verify connection status"),
@@ -92,7 +93,8 @@ func (n *Network) Connect(name string, nt bluetooth.NetworkType) error {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "network-connect-activated",
-				"address", n.Address.String(),
+				"address", n.Key.Address.String(),
+				"adapter", n.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot activate existing connection"),
@@ -108,7 +110,8 @@ func (n *Network) Connect(name string, nt bluetooth.NetworkType) error {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "network-connect-create",
-				"address", n.Address.String(),
+				"address", n.Key.Address.String(),
+				"adapter", n.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot create connection"),
@@ -124,9 +127,9 @@ func (n *Network) Disconnect() error {
 		return err
 	}
 
-	activeConn, ok := n.ActiveConnection.Load(n.Address)
+	activeConn, ok := n.ActiveConnection.Load(n.Key.Address)
 	if ok {
-		n.ActiveConnection.Delete(n.Address)
+		n.ActiveConnection.Delete(n.Key.Address)
 	}
 
 	if activeConn == nil {
@@ -138,7 +141,8 @@ func (n *Network) Disconnect() error {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "network-disconnect-deactivated",
-				"address", n.Address.String(),
+				"address", n.Key.Address.String(),
+				"adapter", n.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot deactivate connection"),
@@ -233,11 +237,11 @@ func (n *Network) createConnection(name string, nt bluetooth.NetworkType) error 
 	}
 
 	connectionSettings := connectionSettings{
-		Address:            n.Address,
 		Name:               name,
 		ConnectionType:     nt,
 		ConnectionUUID:     newUUID,
 		NetworkDunSettings: n.NetworkDunSettings,
+		DeviceAddress:      n.Key,
 	}.toMap()
 
 	settings, err := nm.NewSettings()
@@ -250,7 +254,7 @@ func (n *Network) createConnection(name string, nt bluetooth.NetworkType) error 
 		return err
 	}
 
-	device, err := n.GetDeviceByIpIface(n.Address.String())
+	device, err := n.GetDeviceByIpIface(n.Key.Address.String())
 	if err != nil {
 		return err
 	}
@@ -275,7 +279,7 @@ func (n *Network) activateConnection(conn nm.Connection, device nm.Device) error
 		return err
 	}
 
-	n.ActiveConnection.Store(n.Address, activeConn)
+	n.ActiveConnection.Store(n.Key.Address, activeConn)
 
 	for state := range activeState {
 		if state.State == nm.NmActiveConnectionStateActivating {
@@ -306,7 +310,7 @@ func (n *Network) addrExist(conn nm.Connection, nt bluetooth.NetworkType) (bool,
 		bdtype, ok := settings["bluetooth"]["type"].(string)
 
 		if ok &&
-			bluetooth.MacAddress(addr) == n.Address &&
+			bluetooth.MacAddress(addr) == n.Key.Address &&
 			bdtype == nt.String() {
 			return true, nil
 		}
@@ -351,19 +355,21 @@ func (n *Network) check() error {
 			errorkinds.ErrNetworkInitSession,
 			fctx.With(context.Background(),
 				"error_at", "network-check-manager",
-				"address", n.Address.String(),
+				"address", n.Key.Address.String(),
+				"adapter", n.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot call network manager method"),
 		)
 	}
 
-	_, ok := dbh.PathConverter.DbusPath(dbh.DbusPathDevice, n.Address)
+	_, ok := dbh.PathConverter.DeviceDbusPath(dbh.DbusPathDevice, n.Key)
 	if !ok {
 		return fault.Wrap(errorkinds.ErrDeviceNotFound,
 			fctx.With(context.Background(),
 				"error_at", "network-check-device",
-				"address", n.Address.String(),
+				"address", n.Key.Address.String(),
+				"adapter", n.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.NotFound),
 			fmsg.With("Device does not exist"),

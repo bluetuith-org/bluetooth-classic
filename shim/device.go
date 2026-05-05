@@ -17,39 +17,39 @@ import (
 
 // device describes a function call interface to invoke device related functions.
 type device struct {
-	s       *ShimSession
-	Address bluetooth.MacAddress
+	s   *ShimSession
+	key bluetooth.DeviceAddress
 }
 
 // Pair will attempt to pair a bluetooth device that is in pairing mode.
 func (d *device) Pair() error {
-	_, err := commands.Pair(d.Address).ExecuteWith(d.s.executor)
+	_, err := commands.Pair(d.key.Address).ExecuteWith(d.s.executor)
 	return err
 }
 
 // CancelPairing will cancel a pairing attempt.
 func (d *device) CancelPairing() error {
-	_, err := commands.CancelPairing(d.Address).ExecuteWith(d.s.executor)
+	_, err := commands.CancelPairing(d.key.Address).ExecuteWith(d.s.executor)
 	return err
 }
 
 // Connect will attempt to connect an already paired bluetooth device
 // to an device.
 func (d *device) Connect() error {
-	_, err := commands.Connect(d.Address).ExecuteWith(d.s.executor)
+	_, err := commands.Connect(d.key.Address).ExecuteWith(d.s.executor)
 	return err
 }
 
 // Disconnect will disconnect the bluetooth device from the device.
 func (d *device) Disconnect() error {
-	_, err := commands.Disconnect(d.Address).ExecuteWith(d.s.executor)
+	_, err := commands.Disconnect(d.key.Address).ExecuteWith(d.s.executor)
 	return err
 }
 
 // ConnectProfile will attempt to connect an already paired bluetooth device
 // to an device, using a specific Bluetooth profile UUID .
 func (d *device) ConnectProfile(profileUUID uuid.UUID) error {
-	_, err := commands.ConnectProfile(d.Address, profileUUID).ExecuteWith(d.s.executor)
+	_, err := commands.ConnectProfile(d.key.Address, profileUUID).ExecuteWith(d.s.executor)
 
 	return err
 }
@@ -57,26 +57,26 @@ func (d *device) ConnectProfile(profileUUID uuid.UUID) error {
 // DisconnectProfile will attempt to disconnect an already paired bluetooth device
 // to an device, using a specific Bluetooth profile UUID .
 func (d *device) DisconnectProfile(profileUUID uuid.UUID) error {
-	_, err := commands.DisconnectProfile(d.Address, profileUUID).ExecuteWith(d.s.executor)
+	_, err := commands.DisconnectProfile(d.key.Address, profileUUID).ExecuteWith(d.s.executor)
 
 	return err
 }
 
 // Remove removes a device from its associated device.
 func (d *device) Remove() error {
-	_, err := commands.Remove(d.Address).ExecuteWith(d.s.executor)
+	_, err := commands.Remove(d.key.Address).ExecuteWith(d.s.executor)
 	return err
 }
 
 // SetTrusted sets the device 'trust' status within its associated adapter.
 // Currently is valid only on Linux.
-func (d *device) SetTrusted(enable bool) error {
+func (d *device) SetTrusted(_ bool) error {
 	return errorkinds.ErrNotSupported
 }
 
 // SetBlocked sets the device 'blocked' status within its associated adapter.
 // Currently is valid only on Linux.
-func (d *device) SetBlocked(enable bool) error {
+func (d *device) SetBlocked(_ bool) error {
 	return errorkinds.ErrNotSupported
 }
 
@@ -86,24 +86,23 @@ func (d *device) Properties() (bluetooth.DeviceData, error) {
 }
 
 func (d *device) check() (bluetooth.DeviceData, error) {
-	switch {
-	case d.s == nil || d.s.sessionClosed.Load():
+	if d.s == nil || d.s.sessionClosed.Load() {
 		return bluetooth.DeviceData{}, fault.Wrap(errorkinds.ErrSessionNotExist,
 			fctx.With(context.Background(),
 				"error_at", "device-check-bus",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Error while fetching device data"),
 		)
 	}
 
-	device, err := d.s.store.Device(d.Address)
+	device, err := d.s.store.Device(d.key)
 	if err != nil {
 		return device, fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "device-check-store",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Adapter does not exist"),

@@ -4,9 +4,8 @@ package linux
 
 import (
 	"context"
-	"path/filepath"
-
 	"maps"
+	"path/filepath"
 
 	"github.com/Southclaws/fault"
 	"github.com/Southclaws/fault/fctx"
@@ -16,7 +15,7 @@ import (
 	bluetooth "github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	"github.com/bluetuith-org/bluetooth-classic/api/config"
 	errorkinds "github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
-	sstore "github.com/bluetuith-org/bluetooth-classic/api/helpers/sessionstore"
+	"github.com/bluetuith-org/bluetooth-classic/api/helpers/sessionstore"
 	"github.com/bluetuith-org/bluetooth-classic/api/platforminfo"
 	dbh "github.com/bluetuith-org/bluetooth-classic/linux/internal/dbushelper"
 	mp "github.com/bluetuith-org/bluetooth-classic/linux/mediaplayer"
@@ -34,7 +33,7 @@ type BluezSession struct {
 	netman  *nm.NetManager
 	obexman *obex.ObexManager
 
-	store sstore.SessionStore
+	store sessionstore.SessionStore
 }
 
 // Start attempts to initialize and start interfacing with the Bluez daemon via DBus.
@@ -42,7 +41,6 @@ func (b *BluezSession) Start(
 	authHandler bluetooth.SessionAuthorizer,
 	cfg config.Configuration,
 ) (*ac.FeatureSet, platforminfo.PlatformInfo, error) {
-
 	var capabilities ac.Features
 	var ce ac.Errors
 
@@ -75,7 +73,7 @@ func (b *BluezSession) Start(
 	*b = BluezSession{
 		systemBus:  systemBus,
 		sessionBus: sessionBus,
-		store:      sstore.NewSessionStore(),
+		store:      sessionstore.NewSessionStore(),
 	}
 
 	if err := b.refreshStore(); err != nil {
@@ -153,28 +151,28 @@ func (b *BluezSession) Adapters() ([]bluetooth.AdapterData, error) {
 }
 
 // Adapter returns a function call interface to invoke adapter related functions.
-func (b *BluezSession) Adapter(adapterAddress bluetooth.MacAddress) bluetooth.Adapter {
-	return &adapter{b: b, Address: adapterAddress}
+func (b *BluezSession) Adapter(address bluetooth.AdapterAddress) bluetooth.Adapter {
+	return &adapter{b: b, key: address}
 }
 
 // Device returns a function call interface to invoke device related functions.
-func (b *BluezSession) Device(deviceAddress bluetooth.MacAddress) bluetooth.Device {
-	return &device{b: b, Address: deviceAddress}
+func (b *BluezSession) Device(address bluetooth.DeviceAddress) bluetooth.Device {
+	return &device{b: b, key: address}
 }
 
 // Obex returns a function call interface to invoke obex related functions.
-func (b *BluezSession) Obex(deviceAddress bluetooth.MacAddress) bluetooth.Obex {
-	return &obex.Obex{SessionBus: b.sessionBus, Address: deviceAddress}
+func (b *BluezSession) Obex(address bluetooth.DeviceAddress) bluetooth.Obex {
+	return &obex.Obex{SessionBus: b.sessionBus, Key: address}
 }
 
 // Network returns a function call interface to invoke network related functions.
-func (b *BluezSession) Network(deviceAddress bluetooth.MacAddress) bluetooth.Network {
-	return &nm.Network{NetManager: b.netman, Address: deviceAddress}
+func (b *BluezSession) Network(address bluetooth.DeviceAddress) bluetooth.Network {
+	return &nm.Network{NetManager: b.netman, Key: address}
 }
 
 // MediaPlayer returns a function call interface to invoke mediaplayer related functions.
-func (b *BluezSession) MediaPlayer(deviceAddress bluetooth.MacAddress) bluetooth.MediaPlayer {
-	return &mp.MediaPlayer{SystemBus: b.systemBus, Address: deviceAddress}
+func (b *BluezSession) MediaPlayer(address bluetooth.DeviceAddress) bluetooth.MediaPlayer {
+	return &mp.MediaPlayer{SystemBus: b.systemBus, Key: address}
 }
 
 // adapterInternal returns an adapter-related function call interface for internal use.
@@ -269,7 +267,7 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 		case dbh.BluezMediaPlayerIface:
 			devicePath := dbus.ObjectPath(filepath.Dir(string(signal.Path)))
 
-			address, ok := dbh.PathConverter.Address(dbh.DbusPathDevice, devicePath)
+			key, ok := dbh.PathConverter.DeviceAddress(dbh.DbusPathDevice, devicePath)
 			if !ok {
 				dbh.PublishSignalError(errorkinds.ErrDeviceNotFound, signal,
 					"Bluez event handler error",
@@ -289,7 +287,8 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 				return
 			}
 
-			properties.Address = address
+			properties.DeviceAddress = key
+
 			bluetooth.MediaEvents().PublishUpdated(properties)
 
 		case dbh.BluezBatteryIface:
@@ -355,7 +354,7 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 				}
 
 				b.store.AddAdapter(adapter)
-				dbh.PathConverter.AddDbusPath(dbh.DbusPathAdapter, objectPath, adapter.Address)
+				dbh.PathConverter.AddAdapterDbusPath(objectPath, adapter.AdapterAddress)
 
 				bluetooth.AdapterEvents().PublishAdded(adapter)
 
@@ -371,7 +370,11 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 				}
 
 				b.store.AddDevice(device)
-				dbh.PathConverter.AddDbusPath(dbh.DbusPathDevice, objectPath, device.Address)
+				dbh.PathConverter.AddDeviceDbusPath(
+					dbh.DbusPathDevice,
+					objectPath,
+					device.DeviceAddress,
+				)
 
 				bluetooth.DeviceEvents().PublishAdded(device)
 
@@ -418,7 +421,7 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 		for _, ifaceName := range ifaceNames {
 			switch ifaceName {
 			case dbh.BluezAdapterIface:
-				address, ok := dbh.PathConverter.Address(dbh.DbusPathAdapter, objectPath)
+				key, ok := dbh.PathConverter.AdapterAddress(objectPath)
 				if !ok {
 					dbh.PublishSignalError(errorkinds.ErrAdapterNotFound, signal,
 						"Bluez event handler error",
@@ -428,14 +431,14 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 					return
 				}
 
-				adapter := bluetooth.AdapterEventData{Address: address}
-				b.store.RemoveAdapter(adapter.Address)
+				adapter := bluetooth.AdapterEventData{AdapterAddress: key}
+				b.store.RemoveAdapter(key)
 				dbh.PathConverter.RemoveAdapterDbusPath(objectPath)
 
 				bluetooth.AdapterEvents().PublishRemoved(adapter)
 
 			case dbh.BluezDeviceIface:
-				address, ok := dbh.PathConverter.Address(dbh.DbusPathDevice, objectPath)
+				key, ok := dbh.PathConverter.DeviceAddress(dbh.DbusPathDevice, objectPath)
 				if !ok {
 					dbh.PublishSignalError(errorkinds.ErrDeviceNotFound, signal,
 						"Bluez event handler error",
@@ -445,25 +448,12 @@ func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
 					return
 				}
 
-				adapterPath := dbus.ObjectPath(filepath.Dir(string(objectPath)))
-
-				adapterAddress, ok := dbh.PathConverter.Address(dbh.DbusPathAdapter, adapterPath)
-				if !ok {
-					dbh.PublishSignalError(errorkinds.ErrAdapterNotFound, signal,
-						"Bluez event handler error",
-						"error_at", "premoved-device-adapter",
-					)
-
-					return
-				}
-
 				device := bluetooth.DeviceEventData{
-					Address:           address,
-					AssociatedAdapter: adapterAddress,
+					DeviceAddress: key,
 				}
 
-				b.store.RemoveDevice(device.Address)
-				dbh.PathConverter.RemoveDbusPath(dbh.DbusPathDevice, objectPath)
+				b.store.RemoveDevice(device.DeviceAddress)
+				dbh.PathConverter.RemoveDeviceDbusPath(dbh.DbusPathDevice, objectPath)
 
 				bluetooth.DeviceEvents().PublishRemoved(device)
 			}

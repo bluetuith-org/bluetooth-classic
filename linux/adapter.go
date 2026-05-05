@@ -21,7 +21,7 @@ type adapter struct {
 	b    *BluezSession
 	path dbus.ObjectPath
 
-	Address bluetooth.MacAddress
+	key bluetooth.AdapterAddress
 }
 
 // StartDiscovery will put the adapter into "discovering" mode, which means
@@ -36,7 +36,7 @@ func (a *adapter) StartDiscovery() error {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "adapter-start-discovery",
-				"address", a.Address.String(),
+				"address", a.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("An error occurred while starting device discovery"),
@@ -57,7 +57,7 @@ func (a *adapter) StopDiscovery() error {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "adapter-stop-discovery",
-				"address", a.Address.String(),
+				"address", a.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("An error occurred while stopping device discovery"),
@@ -77,7 +77,7 @@ func (a *adapter) SetPoweredState(enable bool) error {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "adapter-setpowered-state",
-				"address", a.Address.String(),
+				"address", a.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("An error occurred on setting powered state"),
@@ -97,7 +97,7 @@ func (a *adapter) SetDiscoverableState(enable bool) error {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "adapter-setdiscoverable-state",
-				"address", a.Address.String(),
+				"address", a.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("An error occurred on setting discoverable state"),
@@ -117,7 +117,7 @@ func (a *adapter) SetPairableState(enable bool) error {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "adapter-setpairable-state",
-				"address", a.Address.String(),
+				"address", a.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("An error occurred on setting pairable state"),
@@ -138,13 +138,13 @@ func (a *adapter) Devices() ([]bluetooth.DeviceData, error) {
 		return nil, err
 	}
 
-	devices, err := a.b.store.AdapterDevices(a.Address)
+	devices, err := a.b.store.AdapterDevices(a.key)
 	if err != nil {
 		return nil,
 			fault.Wrap(err,
 				fctx.With(context.Background(),
 					"error_at", "adapter-fetch-devices",
-					"address", a.Address.String(),
+					"address", a.key.Address.String(),
 				),
 				ftag.With(ftag.Internal),
 				fmsg.With("Error while fetching adapter devices"),
@@ -158,14 +158,14 @@ func (a *adapter) Devices() ([]bluetooth.DeviceData, error) {
 // adapter's address ((*Adapter).Address), and checks whether the adapter
 // properties are present within the global session store.
 func (a *adapter) check() (bluetooth.AdapterData, error) {
-	dbusPath, exists := dbh.PathConverter.DbusPath(dbh.DbusPathAdapter, a.Address)
+	dbusPath, exists := dbh.PathConverter.AdapterDbusPath(a.key)
 
 	switch {
 	case a.b == nil:
 		return bluetooth.AdapterData{}, fault.Wrap(errorkinds.ErrAdapterNotFound,
 			fctx.With(context.Background(),
 				"error_at", "adapter-check-bus",
-				"address", a.Address.String(),
+				"address", a.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Error while fetching adapter data"),
@@ -175,7 +175,7 @@ func (a *adapter) check() (bluetooth.AdapterData, error) {
 		return bluetooth.AdapterData{}, fault.Wrap(errorkinds.ErrAdapterNotFound,
 			fctx.With(context.Background(),
 				"error_at", "adapter-check-path",
-				"address", a.Address.String(),
+				"address", a.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Error while fetching adapter data"),
@@ -184,12 +184,12 @@ func (a *adapter) check() (bluetooth.AdapterData, error) {
 
 	a.path = dbusPath
 
-	adapter, err := a.b.store.Adapter(a.Address)
+	adapter, err := a.b.store.Adapter(a.key)
 	if err != nil {
 		return adapter, fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "adapter-check-store",
-				"address", a.Address.String(),
+				"address", a.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Adapter does not exist"),
@@ -258,7 +258,7 @@ func (a *adapter) convertAndStoreObjects(values map[string]dbus.Variant) (blueto
 		)
 	}
 
-	dbh.PathConverter.AddDbusPath(dbh.DbusPathAdapter, a.path, adapter.Address)
+	dbh.PathConverter.AddAdapterDbusPath(a.path, adapter.AdapterAddress)
 	adapter.UniqueName = filepath.Base(string(a.path))
 
 	a.b.store.AddAdapter(adapter)

@@ -20,18 +20,18 @@ type Session interface {
 	Adapters() ([]AdapterData, error)
 
 	// Adapter returns a function call interface to invoke adapter related functions.
-	Adapter(adapterAddress MacAddress) Adapter
+	Adapter(address AdapterAddress) Adapter
 
 	// Device returns a function call interface to invoke device related functions.
-	Device(deviceAddress MacAddress) Device
+	Device(address DeviceAddress) Device
 
 	// Obex returns a function call interface to invoke obex related functions.
-	Obex(deviceAddress MacAddress) Obex
+	Obex(address DeviceAddress) Obex
 
 	// Network returns a function call interface to invoke network related functions.
-	Network(deviceAddress MacAddress) Network
+	Network(address DeviceAddress) Network
 
 	// MediaPlayer returns a function call interface to invoke media player/control
 	// related functions on a device.
-	MediaPlayer(deviceAddress MacAddress) MediaPlayer
+	MediaPlayer(address DeviceAddress) MediaPlayer
 }

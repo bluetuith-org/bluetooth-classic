@@ -44,12 +44,13 @@ type AuthReply struct {
 
 // AuthEventData describes an authentication event.
 type AuthEventData struct {
+	bluetooth.DeviceAddress
+
 	AuthID      int             `json:"auth_id,omitempty"`
 	EventID     AuthEventID     `json:"auth_event,omitempty"`
 	ReplyMethod AuthReplyMethod `json:"auth_reply_method,omitempty"`
 
-	TimeoutMs int                  `json:"timeout_ms,omitempty"`
-	Address   bluetooth.MacAddress `json:"address,omitempty"`
+	TimeoutMs int `json:"timeout_ms,omitempty"`
 
 	Pincode string `json:"pincode,omitempty"`
 
@@ -58,7 +59,7 @@ type AuthEventData struct {
 
 	UUID uuid.UUID `json:"uuid,omitempty"`
 
-	ObjectPush bluetooth.ObjectPushData `json:"file_transfer,omitempty"`
+	ObjectPush bluetooth.ObjectPushData `json:"file_transfer,omitzero"`
 }
 
 // CallAuthorizer maps the authentication event to the registered 'SessionAuthorizer' handlers.
@@ -73,31 +74,31 @@ func (a *AuthEventData) CallAuthorizer(authorizer bluetooth.SessionAuthorizer, c
 	case DisplayPinCode:
 		authfn = func() (AuthReply, error) {
 			return AuthReply{ReplyWithInput, a.Pincode},
-				authorizer.DisplayPinCode(bluetooth.NewAuthTimeout(time.Duration(a.TimeoutMs)*time.Millisecond), a.Address, a.Pincode)
+				authorizer.DisplayPinCode(bluetooth.NewAuthTimeout(time.Duration(a.TimeoutMs)*time.Millisecond), a.Pincode, a.DeviceAddress)
 		}
 
 	case DisplayPasskey:
 		authfn = func() (AuthReply, error) {
 			return AuthReply{ReplyWithInput, strconv.FormatUint(uint64(a.Passkey), 10)},
-				authorizer.DisplayPasskey(bluetooth.NewAuthTimeout(time.Duration(a.TimeoutMs)*time.Millisecond), a.Address, a.Passkey, a.Entered)
+				authorizer.DisplayPasskey(bluetooth.NewAuthTimeout(time.Duration(a.TimeoutMs)*time.Millisecond), a.Passkey, a.Entered, a.DeviceAddress)
 		}
 
 	case ConfirmPasskey:
 		authfn = func() (AuthReply, error) {
 			return AuthReply{ReplyYesNo, "yes"},
-				authorizer.ConfirmPasskey(bluetooth.NewAuthTimeout(time.Duration(a.TimeoutMs)*time.Millisecond), a.Address, a.Passkey)
+				authorizer.ConfirmPasskey(bluetooth.NewAuthTimeout(time.Duration(a.TimeoutMs)*time.Millisecond), a.Passkey, a.DeviceAddress)
 		}
 
 	case AuthorizePairing:
 		authfn = func() (AuthReply, error) {
 			return AuthReply{ReplyYesNo, "yes"},
-				authorizer.AuthorizePairing(bluetooth.NewAuthTimeout(time.Duration(a.TimeoutMs)*time.Millisecond), a.Address)
+				authorizer.AuthorizePairing(bluetooth.NewAuthTimeout(time.Duration(a.TimeoutMs)*time.Millisecond), a.DeviceAddress)
 		}
 
 	case AuthorizeService:
 		authfn = func() (AuthReply, error) {
 			return AuthReply{ReplyYesNo, "yes"},
-				authorizer.AuthorizeService(bluetooth.NewAuthTimeout(time.Duration(a.TimeoutMs)*time.Millisecond), a.Address, a.UUID)
+				authorizer.AuthorizeService(bluetooth.NewAuthTimeout(time.Duration(a.TimeoutMs)*time.Millisecond), a.UUID, a.DeviceAddress)
 		}
 
 	case AuthorizeTransfer:

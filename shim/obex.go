@@ -17,8 +17,8 @@ import (
 
 // Obex describes an Obex session.
 type obex struct {
-	s       *ShimSession
-	Address bluetooth.MacAddress
+	s   *ShimSession
+	key bluetooth.DeviceAddress
 }
 
 // obexObjectPush describes a file transfer session.
@@ -41,7 +41,7 @@ func (o *obexObjectPush) CreateSession(ctx context.Context) error {
 		return err
 	}
 
-	_, err := commands.CreateSession(o.Address).ExecuteWith(o.s.executor)
+	_, err := commands.CreateSession(o.key.Address).ExecuteWith(o.s.executor)
 	if ctx.Err() == context.Canceled {
 		o.RemoveSession()
 	}
@@ -55,7 +55,7 @@ func (o *obexObjectPush) RemoveSession() error {
 		return err
 	}
 
-	_, err := commands.RemoveSession(o.Address).ExecuteWith(o.s.executor)
+	_, err := commands.RemoveSession(o.key.Address).ExecuteWith(o.s.executor)
 	return err
 }
 
@@ -65,7 +65,7 @@ func (o *obexObjectPush) SendFile(filepath string) (bluetooth.ObjectPushData, er
 		return bluetooth.ObjectPushData{}, err
 	}
 
-	filetransfer, err := commands.SendFile(o.Address, filepath).ExecuteWith(o.s.executor)
+	filetransfer, err := commands.SendFile(o.key.Address, filepath).ExecuteWith(o.s.executor)
 
 	return filetransfer, err
 }
@@ -76,7 +76,7 @@ func (o *obexObjectPush) CancelTransfer() error {
 		return err
 	}
 
-	_, err := commands.CancelTransfer(o.Address).ExecuteWith(o.s.executor)
+	_, err := commands.CancelTransfer(o.key.Address).ExecuteWith(o.s.executor)
 	return err
 }
 
@@ -86,7 +86,7 @@ func (o *obexObjectPush) SuspendTransfer() error {
 		return err
 	}
 
-	_, err := commands.SuspendTransfer(o.Address).ExecuteWith(o.s.executor)
+	_, err := commands.SuspendTransfer(o.key.Address).ExecuteWith(o.s.executor)
 	return err
 }
 
@@ -96,7 +96,7 @@ func (o *obexObjectPush) ResumeTransfer() error {
 		return err
 	}
 
-	_, err := commands.ResumeTransfer(o.Address).ExecuteWith(o.s.executor)
+	_, err := commands.ResumeTransfer(o.key.Address).ExecuteWith(o.s.executor)
 	return err
 }
 
@@ -106,7 +106,7 @@ func (o *obexObjectPush) check() error {
 		return fault.Wrap(errorkinds.ErrSessionNotExist,
 			fctx.With(context.Background(),
 				"error_at", "obex-check-bus",
-				"address", o.Address.String(),
+				"address", o.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Error while fetching obex data"),
@@ -116,7 +116,7 @@ func (o *obexObjectPush) check() error {
 		return fault.Wrap(errorkinds.ErrNotSupported,
 			fctx.With(context.Background(),
 				"error_at", "obex-check-features",
-				"address", o.Address.String(),
+				"address", o.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("The provider does not support sending files"),

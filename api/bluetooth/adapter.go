@@ -32,6 +32,22 @@ type Adapter interface {
 	Devices() ([]DeviceData, error)
 }
 
+// AdapterAddress represents an adapter address.
+type AdapterAddress struct {
+	// Address holds the Bluetooth MAC address of the adapter.
+	Address MacAddress `json:"address,omitzero" codec:"Address,omitempty" doc:"The Bluetooth MAC address of the adapter."`
+}
+
+// NewAdapterAddress returns a new adapter address.
+func NewAdapterAddress(address MacAddress) AdapterAddress {
+	return AdapterAddress{address}
+}
+
+// IsNil returns whether the address is empty.
+func (a *AdapterAddress) IsNil() bool {
+	return a.Address.IsNil()
+}
+
 // AdapterData holds the static bluetooth adapter information installed for a system.
 type AdapterData struct {
 	// UniqueName holds a unique name for the adapter.
@@ -45,8 +61,7 @@ type AdapterData struct {
 // AdapterEventData holds the dynamic (variable) bluetooth adapter information.
 // This is primarily used to send adapter event related data.
 type AdapterEventData struct {
-	// Address holds the Bluetooth MAC address of the adapter.
-	Address MacAddress `json:"address,omitzero" codec:"Address,omitempty" doc:"The Bluetooth MAC address of the adapter."`
+	AdapterAddress
 
 	// Name holds the system-assigned name of the adapter.
 	// This usually can be the hostname of the PC,

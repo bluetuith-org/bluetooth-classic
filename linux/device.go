@@ -22,7 +22,7 @@ type device struct {
 	b    *BluezSession
 	path dbus.ObjectPath
 
-	Address bluetooth.MacAddress
+	key bluetooth.DeviceAddress
 }
 
 // Pair will attempt to pair a bluetooth device that is in pairing mode.
@@ -35,7 +35,8 @@ func (d *device) Pair() error {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "device-pair",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
+				"adapter", d.key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot pair with device"),
@@ -55,7 +56,8 @@ func (d *device) CancelPairing() error {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "device-cancelpairing",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
+				"adapter", d.key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("An error occurred while cancelling pairing"),
@@ -76,7 +78,8 @@ func (d *device) Connect() error {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "device-connect",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
+				"adapter", d.key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot connect to device"),
@@ -96,7 +99,8 @@ func (d *device) Disconnect() error {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "device-disconnect",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
+				"adapter", d.key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot disconnect from device"),
@@ -117,7 +121,8 @@ func (d *device) ConnectProfile(profileUUID uuid.UUID) error {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "device-connect-profile",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
+				"adapter", d.key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot connect to device with profile"),
@@ -138,7 +143,8 @@ func (d *device) DisconnectProfile(profileUUID uuid.UUID) error {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "device-disconnect-profile",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
+				"adapter", d.key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot disconnect from device with profile"),
@@ -150,17 +156,18 @@ func (d *device) DisconnectProfile(profileUUID uuid.UUID) error {
 
 // Remove removes a device from its associated adapter.
 func (d *device) Remove() error {
-	device, err := d.check()
+	_, err := d.check()
 	if err != nil {
 		return err
 	}
 
-	adapterPath, ok := dbh.PathConverter.DbusPath(dbh.DbusPathAdapter, device.AssociatedAdapter)
+	adapterPath, ok := dbh.PathConverter.AdapterDbusPath(d.key.AdapterAddress())
 	if !ok {
 		return fault.Wrap(errorkinds.ErrAdapterNotFound,
 			fctx.With(context.Background(),
 				"error_at", "device-remove-adapterpath",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
+				"adapter", d.key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.NotFound),
 			fmsg.With("Adapter does not exist"),
@@ -171,7 +178,8 @@ func (d *device) Remove() error {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "device-remove-methodcall",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
+				"adapter", d.key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot remove device"),
@@ -192,7 +200,8 @@ func (d *device) SetTrusted(enable bool) error {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "device-trust-method",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
+				"adapter", d.key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot set device 'trust' status"),
@@ -213,7 +222,8 @@ func (d *device) SetBlocked(enable bool) error {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "device-blocked-method",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
+				"adapter", d.key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot set device 'blocked' status"),
@@ -232,14 +242,15 @@ func (d *device) Properties() (bluetooth.DeviceData, error) {
 // device's address ((*Device).Address), and checks whether the device
 // properties are present within the global session store.
 func (d *device) check() (bluetooth.DeviceData, error) {
-	dbusPath, exists := dbh.PathConverter.DbusPath(dbh.DbusPathDevice, d.Address)
+	dbusPath, exists := dbh.PathConverter.DeviceDbusPath(dbh.DbusPathDevice, d.key)
 
 	switch {
 	case d.b == nil:
 		return bluetooth.DeviceData{}, fault.Wrap(errorkinds.ErrDeviceNotFound,
 			fctx.With(context.Background(),
 				"error_at", "device-check-bus",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
+				"adapter", d.key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Error while fetching device data"),
@@ -249,7 +260,8 @@ func (d *device) check() (bluetooth.DeviceData, error) {
 		return bluetooth.DeviceData{}, fault.Wrap(errorkinds.ErrDeviceNotFound,
 			fctx.With(context.Background(),
 				"error_at", "device-check-path",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
+				"adapter", d.key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.NotFound),
 			fmsg.With("Error while fetching device data"),
@@ -258,12 +270,13 @@ func (d *device) check() (bluetooth.DeviceData, error) {
 
 	d.path = dbusPath
 
-	device, err := d.b.store.Device(d.Address)
+	device, err := d.b.store.Device(d.key)
 	if err != nil {
 		return bluetooth.DeviceData{}, fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "device-check-store",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
+				"adapter", d.key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.NotFound),
 			fmsg.With("Device does not exist"),
@@ -314,7 +327,8 @@ func (d *device) convertAndStoreObjects(values map[string]dbus.Variant) (bluetoo
 		return device.DeviceData, fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "device-map-decode",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
+				"adapter", d.key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Error converting device data"),
@@ -326,7 +340,8 @@ func (d *device) convertAndStoreObjects(values map[string]dbus.Variant) (bluetoo
 		return device.DeviceData, fault.Wrap(errorkinds.ErrAdapterNotFound,
 			fctx.With(context.Background(),
 				"error_at", "device-adapter-map",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
+				"adapter", d.key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.NotFound),
 			fmsg.With("Error parsing device adapter data"),
@@ -340,7 +355,8 @@ func (d *device) convertAndStoreObjects(values map[string]dbus.Variant) (bluetoo
 		return device.DeviceData, fault.Wrap(errorkinds.ErrPropertyDataParse,
 			fctx.With(context.Background(),
 				"error_at", "device-adapter-mac",
-				"address", d.Address.String(),
+				"address", d.key.Address.String(),
+				"adapter", d.key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.NotFound),
 			fmsg.With("Error parsing device adapter address"),
@@ -354,7 +370,11 @@ func (d *device) convertAndStoreObjects(values map[string]dbus.Variant) (bluetoo
 		device.Percentage = optional.New(uint32(p))
 	}
 
-	dbh.PathConverter.AddDbusPath(dbh.DbusPathDevice, d.path, device.Address)
+	dbh.PathConverter.AddDeviceDbusPath(
+		dbh.DbusPathDevice,
+		d.path,
+		d.key,
+	)
 	d.b.store.AddDevice(device.DeviceData)
 
 	return device.DeviceData, nil

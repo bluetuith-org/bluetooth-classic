@@ -43,26 +43,26 @@ func (DefaultAuthorizer) AuthorizeTransfer(AuthTimeout, ObjectPushData) error {
 }
 
 // DisplayPinCode accepts all display pincode requests.
-func (DefaultAuthorizer) DisplayPinCode(AuthTimeout, MacAddress, string) error {
+func (DefaultAuthorizer) DisplayPinCode(AuthTimeout, string, DeviceAddress) error {
 	return nil
 }
 
 // DisplayPasskey accepts all display passkey requests.
-func (DefaultAuthorizer) DisplayPasskey(AuthTimeout, MacAddress, uint32, uint16) error {
+func (DefaultAuthorizer) DisplayPasskey(AuthTimeout, uint32, uint16, DeviceAddress) error {
 	return nil
 }
 
 // ConfirmPasskey accepts all passkey confirmation requests.
-func (DefaultAuthorizer) ConfirmPasskey(AuthTimeout, MacAddress, uint32) error {
+func (DefaultAuthorizer) ConfirmPasskey(AuthTimeout, uint32, DeviceAddress) error {
 	return nil
 }
 
 // AuthorizePairing accepts all pairing authorization requests.
-func (DefaultAuthorizer) AuthorizePairing(AuthTimeout, MacAddress) error {
+func (DefaultAuthorizer) AuthorizePairing(AuthTimeout, DeviceAddress) error {
 	return nil
 }
 
 // AuthorizeService accepts all service (Bluetooth profile) authorization requests.
-func (DefaultAuthorizer) AuthorizeService(AuthTimeout, MacAddress, uuid.UUID) error {
+func (DefaultAuthorizer) AuthorizeService(AuthTimeout, uuid.UUID, DeviceAddress) error {
 	return nil
 }

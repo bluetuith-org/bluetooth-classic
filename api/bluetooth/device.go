@@ -46,11 +46,36 @@ type Device interface {
 // AuthorizeDevicePairing describes an authentication interface, which is used
 // to request authentication to pair a device.
 type AuthorizeDevicePairing interface {
-	DisplayPinCode(timeout AuthTimeout, address MacAddress, pincode string) error
-	DisplayPasskey(timeout AuthTimeout, address MacAddress, passkey uint32, entered uint16) error
-	ConfirmPasskey(timeout AuthTimeout, address MacAddress, passkey uint32) error
-	AuthorizePairing(timeout AuthTimeout, address MacAddress) error
-	AuthorizeService(timeout AuthTimeout, address MacAddress, serviceUUID uuid.UUID) error
+	DisplayPinCode(timeout AuthTimeout, pincode string, address DeviceAddress) error
+	DisplayPasskey(timeout AuthTimeout, passkey uint32, entered uint16, address DeviceAddress) error
+	ConfirmPasskey(timeout AuthTimeout, passkey uint32, address DeviceAddress) error
+	AuthorizePairing(timeout AuthTimeout, address DeviceAddress) error
+	AuthorizeService(timeout AuthTimeout, serviceUUID uuid.UUID, address DeviceAddress) error
+}
+
+// DeviceAddress represents a device address that is associated with an adapter.
+type DeviceAddress struct {
+	// Address holds the Bluetooth MAC address of the device.
+	Address MacAddress `json:"address,omitempty" codec:"Address,omitempty" doc:"The Bluetooth MAC address of the device."`
+
+	// AssociatedAdapter holds the Bluetooth MAC address of the adapter
+	// the device is associated with.
+	AssociatedAdapter MacAddress `json:"associated_adapter,omitempty" codec:"AssociatedAdapter,omitempty" doc:"The Bluetooth MAC address of the adapter the device is associated with."`
+}
+
+// NewDeviceAddress returns a new device address.
+func NewDeviceAddress(deviceAddress, adapterAddress MacAddress) DeviceAddress {
+	return DeviceAddress{Address: deviceAddress, AssociatedAdapter: adapterAddress}
+}
+
+// AdapterAddress returns an adapter address that this device's address belongs to.
+func (d *DeviceAddress) AdapterAddress() AdapterAddress {
+	return AdapterAddress{Address: d.AssociatedAdapter}
+}
+
+// IsNil returns whether the address is empty.
+func (d *DeviceAddress) IsNil() bool {
+	return d.Address.IsNil() || d.AssociatedAdapter.IsNil()
 }
 
 // DeviceData holds the static bluetooth device information installed for a system.
@@ -70,15 +95,15 @@ type DeviceData struct {
 	DeviceEventData
 }
 
+// HaveService returns if the device advertises a specific service (Bluetooth profile).
+func (d *DeviceData) HaveService(service uint32) bool {
+	return ServiceExists(d.UUIDs, service)
+}
+
 // DeviceEventData holds the dynamic (variable) bluetooth device information.
 // This is primarily used to send device event related data.
 type DeviceEventData struct {
-	// Address holds the Bluetooth MAC address of the device.
-	Address MacAddress `json:"address,omitempty" codec:"Address,omitempty" doc:"The Bluetooth MAC address of the device."`
-
-	// AssociatedAdapter holds the Bluetooth MAC address of the adapter
-	// the device is associated with.
-	AssociatedAdapter MacAddress `json:"associated_adapter,omitempty" codec:"AssociatedAdapter,omitempty" doc:"The Bluetooth MAC address of the adapter the device is associated with."`
+	DeviceAddress
 
 	// Name holds the name of the device.
 	Name optional.Optional[string] `json:"name,omitzero" codec:"Name,omitempty" doc:"The name of the device."`
@@ -115,11 +140,6 @@ type DeviceEventData struct {
 
 	// UUIDs holds the device-supported Bluetooth profile UUIDs.
 	UUIDs uuid.UUIDs `json:"uuids,omitempty" codec:"UUIDs,omitempty" doc:"The device-supported Bluetooth profile UUIDs."`
-}
-
-// HaveService returns if the device advertises a specific service (Bluetooth profile).
-func (d *DeviceData) HaveService(service uint32) bool {
-	return ServiceExists(d.UUIDs, service)
 }
 
 // DeviceTypeFromClass parses the device class and returns its type.

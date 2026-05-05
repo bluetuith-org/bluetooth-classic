@@ -16,8 +16,8 @@ import (
 
 // adapter describes a function call interface to invoke adapter related functions.
 type adapter struct {
-	s       *ShimSession
-	Address bluetooth.MacAddress
+	s   *ShimSession
+	key bluetooth.AdapterAddress
 }
 
 // StartDiscovery will put the adapter into "discovering" mode, which means
@@ -28,12 +28,12 @@ func (a *adapter) StartDiscovery() error {
 		return err
 	}
 
-	_, err := commands.StartDiscovery(a.Address).ExecuteWith(a.s.executor)
+	_, err := commands.StartDiscovery(a.key.Address).ExecuteWith(a.s.executor)
 	if err != nil {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "adapter-start-discovery",
-				"address", a.Address.String(),
+				"address", a.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("An error occurred while starting device discovery"),
@@ -50,12 +50,12 @@ func (a *adapter) StopDiscovery() error {
 		return err
 	}
 
-	_, err := commands.StopDiscovery(a.Address).ExecuteWith(a.s.executor)
+	_, err := commands.StopDiscovery(a.key.Address).ExecuteWith(a.s.executor)
 	if err != nil {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "adapter-stop-discovery",
-				"address", a.Address.String(),
+				"address", a.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("An error occurred while stopping device discovery"),
@@ -71,12 +71,12 @@ func (a *adapter) SetPoweredState(enable bool) error {
 		return err
 	}
 
-	_, err := commands.SetPoweredState(a.Address, enable).ExecuteWith(a.s.executor)
+	_, err := commands.SetPoweredState(a.key.Address, enable).ExecuteWith(a.s.executor)
 	if err != nil {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "adapter-setpowered-state",
-				"address", a.Address.String(),
+				"address", a.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("An error occurred on setting powered state"),
@@ -92,12 +92,12 @@ func (a *adapter) SetDiscoverableState(enable bool) error {
 		return err
 	}
 
-	_, err := commands.SetDiscoverableState(a.Address, enable).ExecuteWith(a.s.executor)
+	_, err := commands.SetDiscoverableState(a.key.Address, enable).ExecuteWith(a.s.executor)
 	if err != nil {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "adapter-setdiscoverable-state",
-				"address", a.Address.String(),
+				"address", a.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("An error occurred on setting discoverable state"),
@@ -113,12 +113,12 @@ func (a *adapter) SetPairableState(enable bool) error {
 		return err
 	}
 
-	_, err := commands.SetPairableState(a.Address, enable).ExecuteWith(a.s.executor)
+	_, err := commands.SetPairableState(a.key.Address, enable).ExecuteWith(a.s.executor)
 	if err != nil {
 		return fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "adapter-setpairable-state",
-				"address", a.Address.String(),
+				"address", a.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("An error occurred on setting pairable state"),
@@ -140,29 +140,28 @@ func (a *adapter) Devices() ([]bluetooth.DeviceData, error) {
 		return nil, err
 	}
 
-	return a.s.store.AdapterDevices(a.Address)
+	return a.s.store.AdapterDevices(a.key)
 }
 
 // check validates whether the adapter properties are present within the global session store.
 func (a *adapter) check() (bluetooth.AdapterData, error) {
-	switch {
-	case a.s == nil || a.s.sessionClosed.Load():
+	if a.s == nil || a.s.sessionClosed.Load() {
 		return bluetooth.AdapterData{}, fault.Wrap(errorkinds.ErrSessionNotExist,
 			fctx.With(context.Background(),
 				"error_at", "adapter-check-bus",
-				"address", a.Address.String(),
+				"address", a.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Error while fetching adapter data"),
 		)
 	}
 
-	adapter, err := a.s.store.Adapter(a.Address)
+	adapter, err := a.s.store.Adapter(a.key)
 	if err != nil {
 		return adapter, fault.Wrap(err,
 			fctx.With(context.Background(),
 				"error_at", "adapter-check-store",
-				"address", a.Address.String(),
+				"address", a.key.Address.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Adapter does not exist"),

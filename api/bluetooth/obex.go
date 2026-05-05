@@ -89,8 +89,7 @@ type ObjectPushData struct {
 // ObjectPushEventData holds the dynamic (variable) file transfer data for a device.
 // This is primarily used to send file transfer event related data.
 type ObjectPushEventData struct {
-	// Address holds the Bluetooth MAC address of the device.
-	Address MacAddress `json:"address,omitempty" codec:"Address,omitempty" doc:"The Bluetooth MAC address of the device."`
+	DeviceAddress
 
 	// Status indicates the file transfer status.
 	Status ObjectPushStatus `json:"status,omitempty" codec:"Status,omitempty" enum:"queued,active,suspended,complete,error" doc:"Indicates the file transfer status."`

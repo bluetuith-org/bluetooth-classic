@@ -163,40 +163,40 @@ func (s *ShimSession) Adapters() ([]bluetooth.AdapterData, error) {
 }
 
 // Adapter returns a function call interface to invoke adapter related functions.
-func (s *ShimSession) Adapter(adapterAddress bluetooth.MacAddress) bluetooth.Adapter {
-	return &adapter{s, adapterAddress}
+func (s *ShimSession) Adapter(address bluetooth.AdapterAddress) bluetooth.Adapter {
+	return &adapter{s, address}
 }
 
 // Device returns a function call interface to invoke device related functions.
-func (s *ShimSession) Device(deviceAddress bluetooth.MacAddress) bluetooth.Device {
-	return &device{s, deviceAddress}
+func (s *ShimSession) Device(address bluetooth.DeviceAddress) bluetooth.Device {
+	return &device{s, address}
 }
 
 // Obex returns a function call interface to invoke obex related functions.
-func (s *ShimSession) Obex(deviceAddress bluetooth.MacAddress) bluetooth.Obex {
-	return &obex{s, deviceAddress}
+func (s *ShimSession) Obex(address bluetooth.DeviceAddress) bluetooth.Obex {
+	return &obex{s, address}
 }
 
 // Network returns a function call interface to invoke network related functions.
-func (s *ShimSession) Network(bluetooth.MacAddress) bluetooth.Network {
+func (s *ShimSession) Network(bluetooth.DeviceAddress) bluetooth.Network {
 	return &network{}
 }
 
 // MediaPlayer returns a function call interface to invoke media player/control
 // related functions on a device.
-func (s *ShimSession) MediaPlayer(bluetooth.MacAddress) bluetooth.MediaPlayer {
+func (s *ShimSession) MediaPlayer(bluetooth.DeviceAddress) bluetooth.MediaPlayer {
 	return &mediaPlayer{}
 }
 
-// adapter returns an adapter-related function call interface for internal use.
-// This is used primarily to initialize adapter objects.
-func (s *ShimSession) adapter() *adapter {
+// emptyAdapter returns an aapter-related function call interface for internal use.
+// This is used primarily to initialize emptyAdapter objects.
+func (s *ShimSession) emptyAdapter() *adapter {
 	return &adapter{}
 }
 
-// device returns an device-related function call interface for internal use.
-// This is used primarily to initialize device objects.
-func (s *ShimSession) device() *device {
+// emptyDevice returns a device-related function call interface for internal use.
+// This is used primarily to initialize emptyDevice objects.
+func (s *ShimSession) emptyDevice() *device {
 	return &device{}
 }
 
@@ -209,7 +209,7 @@ func (s *ShimSession) refreshStore() error {
 	}
 
 	for _, adapter := range adapters {
-		newAdapter, err := s.adapter().appendProperties(adapter)
+		newAdapter, err := s.emptyAdapter().appendProperties(adapter)
 		if err != nil {
 			return err
 		}
@@ -220,7 +220,7 @@ func (s *ShimSession) refreshStore() error {
 			return err
 		}
 		for _, device := range devices {
-			newDevice, err := s.device().appendProperties(device, adapter)
+			newDevice, err := s.emptyDevice().appendProperties(device, adapter)
 			if err != nil {
 				return err
 			}
@@ -283,16 +283,16 @@ func (s *ShimSession) listen(ctx context.Context) {
 				return
 			}
 
-			if err := serde.UnmarshalJson(scanner.Bytes(), &response); err != nil {
+			if err := serde.UnmarshalJSON(scanner.Bytes(), &response); err != nil {
 				s.handleListenerError(err, false)
 			}
 
-			if response.EventId > 0 {
+			if response.EventID > 0 {
 				go s.handleListenerEvent(response.ServerEvent)
 				continue
 			}
 
-			replyChan, ok := s.requestMap.LoadAndDelete(int64(response.RequestId))
+			replyChan, ok := s.requestMap.LoadAndDelete(int64(response.RequestID))
 			if ok {
 				sendData(replyChan, response.CommandResponse)
 			}
@@ -304,7 +304,7 @@ func (s *ShimSession) listen(ctx context.Context) {
 
 // handleListenerEvent handles an event that was received from the socket (i.e listener).
 func (s *ShimSession) handleListenerEvent(ev events.ServerEvent) {
-	switch ev.EventId {
+	switch ev.EventID {
 	case bluetooth.EventError:
 		var genError error
 
@@ -360,7 +360,7 @@ func (s *ShimSession) handleListenerEvent(ev events.ServerEvent) {
 			s.store.AddAdapter(adapter)
 
 		case bluetooth.EventActionUpdated:
-			updated, err := s.store.UpdateAdapter(adapter.Address, func(dd *bluetooth.AdapterData) error {
+			updated, err := s.store.UpdateAdapter(adapter.AdapterAddress, func(dd *bluetooth.AdapterData) error {
 				return events.UnmarshalRawEvent(ev, &dd.AdapterEventData)
 			})
 			if err != nil {
@@ -372,7 +372,7 @@ func (s *ShimSession) handleListenerEvent(ev events.ServerEvent) {
 
 		case bluetooth.EventActionRemoved:
 			bluetooth.AdapterEvents().PublishRemoved(adapter.AdapterEventData)
-			s.store.RemoveAdapter(adapter.Address)
+			s.store.RemoveAdapter(adapter.AdapterAddress)
 		}
 
 	case bluetooth.EventDevice:
@@ -390,7 +390,7 @@ func (s *ShimSession) handleListenerEvent(ev events.ServerEvent) {
 			s.store.AddDevice(device)
 
 		case bluetooth.EventActionUpdated:
-			updated, err := s.store.UpdateDevice(device.Address, func(dd *bluetooth.DeviceData) error {
+			updated, err := s.store.UpdateDevice(device.DeviceAddress, func(dd *bluetooth.DeviceData) error {
 				return events.UnmarshalRawEvent(ev, &dd.DeviceEventData)
 			})
 			if err != nil {
@@ -402,7 +402,7 @@ func (s *ShimSession) handleListenerEvent(ev events.ServerEvent) {
 
 		case bluetooth.EventActionRemoved:
 			bluetooth.DeviceEvents().PublishRemoved(device.DeviceEventData)
-			s.store.RemoveDevice(device.Address)
+			s.store.RemoveDevice(device.DeviceAddress)
 		}
 
 	case bluetooth.EventObjectPush:
@@ -478,7 +478,7 @@ func (s *ShimSession) executor(params []string) (chan commands.CommandResponse, 
 		"request_id": s.id.Value(),
 	}
 
-	commandBytes, err := serde.MarshalJson(command)
+	commandBytes, err := serde.MarshalJSON(command)
 	if err != nil {
 		return nil, err
 	}

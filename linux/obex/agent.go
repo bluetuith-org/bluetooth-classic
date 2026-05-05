@@ -134,7 +134,9 @@ func (o *agent) AuthorizePush(transferPath dbus.ObjectPath) (string, *dbus.Error
 		return "", o.makeError()
 	}
 
-	bluetooth.ObjectPushEvents().PublishAdded(transferProperty.appendExtra(transferPath, sessionProperty.Destination, struct{}{}).ObjectPushData)
+	key := bluetooth.NewDeviceAddress(sessionProperty.Destination, sessionProperty.Source)
+
+	bluetooth.ObjectPushEvents().PublishAdded(transferProperty.appendExtra(transferPath, key, struct{}{}).ObjectPushData)
 
 	path := filepath.Join(sessionProperty.Root, transferProperty.Name)
 	o.ctx = bluetooth.NewAuthTimeout(o.authTimeout)

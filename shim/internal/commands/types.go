@@ -9,7 +9,7 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
-// The default timeout to stop waiting for a command's result (response from a server).
+// CommandReplyTimeout is the default timeout to stop waiting for a command's result (response from a server).
 const CommandReplyTimeout = 30 * time.Second
 
 type (
@@ -44,8 +44,8 @@ type Command[T any] struct {
 type CommandResponse struct {
 	Status string `json:"status"`
 
-	OperationId OperationID  `json:"operation_id,omitempty"`
-	RequestId   RequestID    `json:"request_id,omitempty"`
+	OperationID OperationID  `json:"operation_id,omitempty"`
+	RequestID   RequestID    `json:"request_id,omitempty"`
 	Error       CommandError `json:"error"`
 	Data        codec.Raw    `json:"data"`
 }

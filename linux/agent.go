@@ -101,7 +101,7 @@ func (b *agent) RequestPasskey(_ dbus.ObjectPath) (uint32, *dbus.Error) {
 
 // DisplayPinCode displays a pincode from the device via the agent.
 func (b *agent) DisplayPinCode(devicePath dbus.ObjectPath, pincode string) *dbus.Error {
-	address, ok := dbh.PathConverter.Address(dbh.DbusPathDevice, devicePath)
+	key, ok := dbh.PathConverter.DeviceAddress(dbh.DbusPathDevice, devicePath)
 	if !ok {
 		dbh.PublishError(errors.New(string(devicePath)),
 			"Bluez agent error: Device not found",
@@ -114,7 +114,7 @@ func (b *agent) DisplayPinCode(devicePath dbus.ObjectPath, pincode string) *dbus
 	b.ctx = bluetooth.NewAuthTimeout(b.authTimeout)
 	defer b.Cancel()
 
-	if err := b.authHandler.DisplayPinCode(b.ctx, address, pincode); err != nil {
+	if err := b.authHandler.DisplayPinCode(b.ctx, pincode, key); err != nil {
 		dbh.PublishError(err,
 			"Bluez agent error: Authorization callback returned an error",
 			"error_at", "displaypin-device-address",
@@ -128,7 +128,7 @@ func (b *agent) DisplayPinCode(devicePath dbus.ObjectPath, pincode string) *dbus
 
 // DisplayPasskey displays a passkey from the device via the agent.
 func (b *agent) DisplayPasskey(devicePath dbus.ObjectPath, passkey uint32, entered uint16) *dbus.Error {
-	address, ok := dbh.PathConverter.Address(dbh.DbusPathDevice, devicePath)
+	key, ok := dbh.PathConverter.DeviceAddress(dbh.DbusPathDevice, devicePath)
 	if !ok {
 		dbh.PublishError(errors.New(string(devicePath)),
 			"Bluez agent error: Device not found",
@@ -141,7 +141,7 @@ func (b *agent) DisplayPasskey(devicePath dbus.ObjectPath, passkey uint32, enter
 	b.ctx = bluetooth.NewAuthTimeout(b.authTimeout)
 	defer b.Cancel()
 
-	if err := b.authHandler.DisplayPasskey(b.ctx, address, passkey, entered); err != nil {
+	if err := b.authHandler.DisplayPasskey(b.ctx, passkey, entered, key); err != nil {
 		dbh.PublishError(err,
 			"Bluez agent error: Authorization callback returned an error",
 			"error_at", "displaypk-device-address",
@@ -155,7 +155,7 @@ func (b *agent) DisplayPasskey(devicePath dbus.ObjectPath, passkey uint32, enter
 
 // RequestConfirmation requests confirmation to pair with the device using the provided passkey.
 func (b *agent) RequestConfirmation(devicePath dbus.ObjectPath, passkey uint32) *dbus.Error {
-	address, ok := dbh.PathConverter.Address(dbh.DbusPathDevice, devicePath)
+	key, ok := dbh.PathConverter.DeviceAddress(dbh.DbusPathDevice, devicePath)
 	if !ok {
 		dbh.PublishError(errors.New(string(devicePath)),
 			"Bluez agent error: Device not found",
@@ -168,7 +168,7 @@ func (b *agent) RequestConfirmation(devicePath dbus.ObjectPath, passkey uint32) 
 	b.ctx = bluetooth.NewAuthTimeout(b.authTimeout)
 	defer b.Cancel()
 
-	if err := b.authHandler.ConfirmPasskey(b.ctx, address, passkey); err != nil {
+	if err := b.authHandler.ConfirmPasskey(b.ctx, passkey, key); err != nil {
 		dbh.PublishError(err,
 			"Bluez agent error: Authorization callback returned an error",
 			"error_at", "authpk-device-address",
@@ -182,7 +182,7 @@ func (b *agent) RequestConfirmation(devicePath dbus.ObjectPath, passkey uint32) 
 
 // RequestAuthorization requests authorization to pair with a device.
 func (b *agent) RequestAuthorization(devicePath dbus.ObjectPath) *dbus.Error {
-	address, ok := dbh.PathConverter.Address(dbh.DbusPathDevice, devicePath)
+	key, ok := dbh.PathConverter.DeviceAddress(dbh.DbusPathDevice, devicePath)
 	if !ok {
 		dbh.PublishError(errors.New(string(devicePath)),
 			"Bluez agent error: Device not found",
@@ -195,7 +195,7 @@ func (b *agent) RequestAuthorization(devicePath dbus.ObjectPath) *dbus.Error {
 	b.ctx = bluetooth.NewAuthTimeout(b.authTimeout)
 	defer b.Cancel()
 
-	if err := b.authHandler.AuthorizePairing(b.ctx, address); err != nil {
+	if err := b.authHandler.AuthorizePairing(b.ctx, key); err != nil {
 		dbh.PublishError(err,
 			"Bluez agent error: Authorization callback returned an error",
 			"error_at", "authpairing-device-address",
@@ -209,7 +209,7 @@ func (b *agent) RequestAuthorization(devicePath dbus.ObjectPath) *dbus.Error {
 
 // AuthorizeService requests authorization of a Bluetooth service using its profile UUID.
 func (b *agent) AuthorizeService(devicePath dbus.ObjectPath, uuidstr string) *dbus.Error {
-	address, ok := dbh.PathConverter.Address(dbh.DbusPathDevice, devicePath)
+	key, ok := dbh.PathConverter.DeviceAddress(dbh.DbusPathDevice, devicePath)
 	if !ok {
 		dbh.PublishError(errors.New(string(devicePath)),
 			"Bluez agent error: Device not found",
@@ -223,7 +223,7 @@ func (b *agent) AuthorizeService(devicePath dbus.ObjectPath, uuidstr string) *db
 	b.ctx = bluetooth.NewAuthTimeout(b.authTimeout)
 	defer b.Cancel()
 
-	if err := b.authHandler.AuthorizeService(b.ctx, address, u); err != nil {
+	if err := b.authHandler.AuthorizeService(b.ctx, u, key); err != nil {
 		dbh.PublishError(err,
 			"Bluez agent error: Authorization callback returned an error",
 			"error_at", "authservice-device-address",

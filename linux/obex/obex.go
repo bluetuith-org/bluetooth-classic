@@ -19,7 +19,7 @@ import (
 // Obex describes a Bluez Obex session.
 type Obex struct {
 	SessionBus *dbus.Conn
-	Address    bluetooth.MacAddress
+	Key        bluetooth.DeviceAddress
 }
 
 // ObexManager holds an OBEX session and agent.
@@ -45,7 +45,7 @@ func NewManager(SessionBus *dbus.Conn) *ObexManager {
 type obexSessionProperties struct {
 	Root        string
 	Target      string
-	Source      string
+	Source      bluetooth.MacAddress
 	Destination bluetooth.MacAddress
 }
 
@@ -106,7 +106,7 @@ func (o *ObexManager) Stop() error {
 // ObjectPush returns a function call interface to invoke device file transfer
 // related functions.
 func (o *Obex) ObjectPush() bluetooth.ObexObjectPush {
-	return &fileTransfer{Obex{SessionBus: o.SessionBus, Address: o.Address}}
+	return &fileTransfer{Obex{SessionBus: o.SessionBus, Key: o.Key}}
 }
 
 // watchObexSessionBus will register a signal and watch for events from the OBEX DBus interface.
@@ -150,11 +150,13 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 					continue
 				}
 
-				dbh.PathConverter.AddDbusPath(dbh.DbusPathObexSession, dbus.ObjectPath(props.SessionID), sessionProps.Destination)
-				dbh.PathConverter.AddDbusPath(dbh.DbusPathObexTransfer, dbus.ObjectPath(objectPath), sessionProps.Destination)
+				key := bluetooth.NewDeviceAddress(sessionProps.Destination, sessionProps.Source)
+
+				dbh.PathConverter.AddDeviceDbusPath(dbh.DbusPathObexSession, dbus.ObjectPath(props.SessionID), key)
+				dbh.PathConverter.AddDeviceDbusPath(dbh.DbusPathObexTransfer, dbus.ObjectPath(objectPath), key)
 
 				if props.Filename != "" {
-					props.appendExtra(objectPath, sessionProps.Destination)
+					props.appendExtra(objectPath, key)
 					bluetooth.ObjectPushEvents().PublishAdded(props.ObjectPushData)
 				}
 			}
@@ -174,7 +176,7 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 		switch objectInterfaceName {
 		case dbh.ObexSessionIface:
 		case dbh.ObexTransferIface:
-			address, ok := dbh.PathConverter.Address(dbh.DbusPathObexTransfer, signal.Path)
+			key, ok := dbh.PathConverter.DeviceAddress(dbh.DbusPathObexTransfer, signal.Path)
 
 			if !ok {
 				dbh.PublishSignalError(errorkinds.ErrDeviceNotFound, signal,
@@ -186,7 +188,7 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 			}
 
 			transferData := obexTransferProperties{}
-			transferData.appendExtra(signal.Path, address)
+			transferData.appendExtra(signal.Path, bluetooth.DeviceAddress(key))
 
 			if err := dbh.DecodeVariantMap(
 				propertyMap, &transferData,
@@ -217,10 +219,10 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 		for _, ifaceName := range ifaceNames {
 			switch ifaceName {
 			case dbh.ObexSessionIface:
-				dbh.PathConverter.RemoveDbusPath(dbh.DbusPathObexSession, objectPath)
+				dbh.PathConverter.RemoveDeviceDbusPath(dbh.DbusPathObexSession, objectPath)
 
 			case dbh.ObexTransferIface:
-				address, ok := dbh.PathConverter.Address(dbh.DbusPathObexTransfer, objectPath)
+				key, ok := dbh.PathConverter.DeviceAddress(dbh.DbusPathObexTransfer, objectPath)
 				if !ok {
 					dbh.PublishSignalError(errorkinds.ErrDeviceNotFound, signal,
 						"Obex event handler error",
@@ -231,11 +233,11 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 				}
 
 				var props obexTransferProperties
-				props.appendExtra(objectPath, address)
+				props.appendExtra(objectPath, bluetooth.DeviceAddress(key))
 
 				bluetooth.ObjectPushEvents().PublishRemoved(props.ObjectPushEventData)
 
-				dbh.PathConverter.RemoveDbusPath(dbh.DbusPathObexTransfer, objectPath)
+				dbh.PathConverter.RemoveDeviceDbusPath(dbh.DbusPathObexTransfer, objectPath)
 			}
 		}
 	}
@@ -290,15 +292,16 @@ func (o *Obex) transferProperties(transferPath dbus.ObjectPath) (obexTransferPro
 		return obexTransferProperties{}, err
 	}
 
-	return *transferProperties.appendExtra(transferPath, bluetooth.MacAddress{}), dbh.DecodeVariantMap(props, &transferProperties)
+	return *transferProperties.appendExtra(transferPath, bluetooth.DeviceAddress{}), dbh.DecodeVariantMap(props, &transferProperties)
 }
 
 // appendExtra appends extra properties to the transfer item.
-func (t *obexTransferProperties) appendExtra(transferPath dbus.ObjectPath, address bluetooth.MacAddress, receiving ...struct{}) *obexTransferProperties {
+func (t *obexTransferProperties) appendExtra(transferPath dbus.ObjectPath, key bluetooth.DeviceAddress, receiving ...struct{}) *obexTransferProperties {
 	t.TransferID = bluetooth.ObjectPushTransferID(string(transferPath))
 	t.SessionID = bluetooth.ObjectPushSessionID(filepath.Dir(t.TransferID.String()))
-	if !address.IsNil() {
-		t.Address = address
+
+	if !key.IsNil() {
+		t.DeviceAddress = key
 	}
 
 	t.Receiving = receiving != nil

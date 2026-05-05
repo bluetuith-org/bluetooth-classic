@@ -34,14 +34,15 @@ func (o *fileTransfer) CreateSession(ctx context.Context) error {
 	args := make(map[string]any, 1)
 	args["Target"] = "opp"
 
-	session := o.callClientAsync(ctx, "CreateSession", o.Address.String(), args)
+	session := o.callClientAsync(ctx, "CreateSession", o.Key.Address.String(), args)
 	select {
 	case <-ctx.Done():
 		return fault.Wrap(
 			context.Canceled,
 			fctx.With(context.Background(),
 				"error_at", "obex-createsession-cancelled",
-				"address", o.Address.String(),
+				"address", o.Key.Address.String(),
+				"adapter", o.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Session creation was cancelled"),
@@ -53,7 +54,8 @@ func (o *fileTransfer) CreateSession(ctx context.Context) error {
 				call.Err,
 				fctx.With(context.Background(),
 					"error_at", "obex-createsession-methodcall",
-					"address", o.Address.String(),
+					"address", o.Key.Address.String(),
+					"adapter", o.Key.AssociatedAdapter.String(),
 				),
 				ftag.With(ftag.Internal),
 				fmsg.With("Cannot start a file transfer session"),
@@ -65,7 +67,8 @@ func (o *fileTransfer) CreateSession(ctx context.Context) error {
 				err,
 				fctx.With(context.Background(),
 					"error_at", "obex-createsession-path",
-					"address", o.Address.String(),
+					"address", o.Key.Address.String(),
+					"adapter", o.Key.AssociatedAdapter.String(),
 				),
 				ftag.With(ftag.Internal),
 				fmsg.With("Cannot obtain file transfer session data"),
@@ -73,7 +76,7 @@ func (o *fileTransfer) CreateSession(ctx context.Context) error {
 		}
 	}
 
-	dbh.PathConverter.AddDbusPath(dbh.DbusPathObexSession, sessionPath, o.Address)
+	dbh.PathConverter.AddDeviceDbusPath(dbh.DbusPathObexSession, sessionPath, o.Key)
 
 	return nil
 }
@@ -84,13 +87,14 @@ func (o *fileTransfer) RemoveSession() error {
 		return err
 	}
 
-	sessionPath, ok := dbh.PathConverter.DbusPath(dbh.DbusPathObexSession, o.Address)
+	sessionPath, ok := dbh.PathConverter.DeviceDbusPath(dbh.DbusPathObexSession, o.Key)
 	if !ok {
 		return fault.Wrap(
 			errorkinds.ErrPropertyDataParse,
 			fctx.With(context.Background(),
 				"error_at", "obex-removesession-path",
-				"address", o.Address.String(),
+				"address", o.Key.Address.String(),
+				"adapter", o.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot obtain file transfer session data"),
@@ -102,7 +106,8 @@ func (o *fileTransfer) RemoveSession() error {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "obex-removesession-methodcall",
-				"address", o.Address.String(),
+				"address", o.Key.Address.String(),
+				"adapter", o.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("An error occurred while removing the file transfer session"),
@@ -121,14 +126,15 @@ func (o *fileTransfer) SendFile(filepath string) (bluetooth.ObjectPushData, erro
 	var transferPath dbus.ObjectPath
 	var fileTransferObject obexTransferProperties
 
-	sessionPath, ok := dbh.PathConverter.DbusPath(dbh.DbusPathObexSession, o.Address)
+	sessionPath, ok := dbh.PathConverter.DeviceDbusPath(dbh.DbusPathObexSession, o.Key)
 	if !ok {
 		return bluetooth.ObjectPushData{},
 			fault.Wrap(
 				errorkinds.ErrPropertyDataParse,
 				fctx.With(context.Background(),
 					"error_at", "obex-sendfile-sessionpath",
-					"address", o.Address.String(),
+					"address", o.Key.Address.String(),
+					"adapter", o.Key.AssociatedAdapter.String(),
 				),
 				ftag.With(ftag.Internal),
 				fmsg.With("Cannot obtain file transfer session data"),
@@ -143,15 +149,16 @@ func (o *fileTransfer) SendFile(filepath string) (bluetooth.ObjectPushData, erro
 				err,
 				fctx.With(context.Background(),
 					"error_at", "obex-sendfile-methodcall",
-					"address", o.Address.String(),
+					"address", o.Key.Address.String(),
+					"adapter", o.Key.AssociatedAdapter.String(),
 				),
 				ftag.With(ftag.Internal),
 				fmsg.With("Cannot send file: "+filepath),
 			)
 	}
 
-	fileTransferObject.appendExtra(transferPath, o.Address)
-	dbh.PathConverter.AddDbusPath(dbh.DbusPathObexTransfer, transferPath, o.Address)
+	fileTransferObject.appendExtra(transferPath, o.Key)
+	dbh.PathConverter.AddDeviceDbusPath(dbh.DbusPathObexTransfer, transferPath, o.Key)
 
 	if err := dbh.DecodeVariantMap(transferPropertyMap, &fileTransferObject); err != nil {
 		return bluetooth.ObjectPushData{},
@@ -159,7 +166,8 @@ func (o *fileTransfer) SendFile(filepath string) (bluetooth.ObjectPushData, erro
 				err,
 				fctx.With(context.Background(),
 					"error_at", "obex-sendfile-decode",
-					"address", o.Address.String(),
+					"address", o.Key.Address.String(),
+					"adapter", o.Key.AssociatedAdapter.String(),
 				),
 				ftag.With(ftag.Internal),
 				fmsg.With("Cannot obtain file transfer data"),
@@ -175,13 +183,14 @@ func (o *fileTransfer) CancelTransfer() error {
 		return err
 	}
 
-	transferPath, ok := dbh.PathConverter.DbusPath(dbh.DbusPathObexTransfer, o.Address)
+	transferPath, ok := dbh.PathConverter.DeviceDbusPath(dbh.DbusPathObexTransfer, o.Key)
 	if !ok {
 		return fault.Wrap(
 			errorkinds.ErrPropertyDataParse,
 			fctx.With(context.Background(),
 				"error_at", "obex-canceltransfer-path",
-				"address", o.Address.String(),
+				"address", o.Key.Address.String(),
+				"adapter", o.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot obtain file transfer data"),
@@ -193,7 +202,8 @@ func (o *fileTransfer) CancelTransfer() error {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "obex-canceltransfer-call",
-				"address", o.Address.String(),
+				"address", o.Key.Address.String(),
+				"adapter", o.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot cancel transfer"),
@@ -209,13 +219,14 @@ func (o *fileTransfer) SuspendTransfer() error {
 		return err
 	}
 
-	transferPath, ok := dbh.PathConverter.DbusPath(dbh.DbusPathObexTransfer, o.Address)
+	transferPath, ok := dbh.PathConverter.DeviceDbusPath(dbh.DbusPathObexTransfer, o.Key)
 	if !ok {
 		return fault.Wrap(
 			errorkinds.ErrPropertyDataParse,
 			fctx.With(context.Background(),
 				"error_at", "obex-suspendtransfer-path",
-				"address", o.Address.String(),
+				"address", o.Key.Address.String(),
+				"adapter", o.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot obtain file transfer data"),
@@ -227,7 +238,8 @@ func (o *fileTransfer) SuspendTransfer() error {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "obex-suspendtransfer-call",
-				"address", o.Address.String(),
+				"address", o.Key.Address.String(),
+				"adapter", o.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot suspend transfer"),
@@ -243,13 +255,14 @@ func (o *fileTransfer) ResumeTransfer() error {
 		return err
 	}
 
-	transferPath, ok := dbh.PathConverter.DbusPath(dbh.DbusPathObexTransfer, o.Address)
+	transferPath, ok := dbh.PathConverter.DeviceDbusPath(dbh.DbusPathObexTransfer, o.Key)
 	if !ok {
 		return fault.Wrap(
 			errorkinds.ErrPropertyDataParse,
 			fctx.With(context.Background(),
 				"error_at", "obex-resumetransfer-path",
-				"address", o.Address.String(),
+				"address", o.Key.Address.String(),
+				"adapter", o.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.NotFound),
 			fmsg.With("Cannot obtain file transfer data"),
@@ -261,7 +274,8 @@ func (o *fileTransfer) ResumeTransfer() error {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "obex-resumetransfer-call",
-				"address", o.Address.String(),
+				"address", o.Key.Address.String(),
+				"adapter", o.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot resume transfer"),
@@ -277,19 +291,21 @@ func (o *fileTransfer) check() error {
 		return fault.Wrap(errorkinds.ErrObexInitSession,
 			fctx.With(context.Background(),
 				"error_at", "obex-check-sessionbus",
-				"address", o.Address.String(),
+				"address", o.Key.Address.String(),
+				"adapter", o.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.NotFound),
 			fmsg.With("Cannot call file transfer method on session-bus"),
 		)
 	}
 
-	_, ok := dbh.PathConverter.DbusPath(dbh.DbusPathDevice, o.Address)
+	_, ok := dbh.PathConverter.DeviceDbusPath(dbh.DbusPathDevice, o.Key)
 	if !ok {
 		return fault.Wrap(errorkinds.ErrDeviceNotFound,
 			fctx.With(context.Background(),
 				"error_at", "obex-check-device",
-				"address", o.Address.String(),
+				"address", o.Key.Address.String(),
+				"adapter", o.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.NotFound),
 			fmsg.With("Device does not exist"),

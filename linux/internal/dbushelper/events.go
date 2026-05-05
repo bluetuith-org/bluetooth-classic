@@ -12,7 +12,7 @@ import (
 // PublishAdapterUpdateEvent publishes an adapter event after updating the session store.
 func PublishAdapterUpdateEvent(store *sstore.SessionStore, signal *dbus.Signal, variants map[string]dbus.Variant) {
 	go func() {
-		address, ok := PathConverter.Address(DbusPathAdapter, signal.Path)
+		address, ok := PathConverter.AdapterAddress(signal.Path)
 		if !ok {
 			PublishSignalError(errorkinds.ErrAdapterNotFound, signal,
 				"Bluez event handler error",
@@ -39,7 +39,7 @@ func PublishAdapterUpdateEvent(store *sstore.SessionStore, signal *dbus.Signal, 
 // PublishDeviceUpdateEvent publishes a device event after updating the session store.
 func PublishDeviceUpdateEvent(store *sstore.SessionStore, signal *dbus.Signal, variants map[string]dbus.Variant) {
 	go func() {
-		address, ok := PathConverter.Address(DbusPathDevice, signal.Path)
+		key, ok := PathConverter.DeviceAddress(DbusPathDevice, signal.Path)
 		if !ok {
 			PublishSignalError(errorkinds.ErrDeviceNotFound, signal,
 				"Bluez event handler error",
@@ -49,7 +49,7 @@ func PublishDeviceUpdateEvent(store *sstore.SessionStore, signal *dbus.Signal, v
 			return
 		}
 
-		updated, err := store.UpdateDevice(address, DecodeDeviceFunc(variants))
+		updated, err := store.UpdateDevice(key, DecodeDeviceFunc(variants))
 		if err != nil {
 			PublishSignalError(err, signal,
 				"Bluez event handler error",

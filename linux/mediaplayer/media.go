@@ -21,7 +21,7 @@ import (
 // functions.
 type MediaPlayer struct {
 	SystemBus *dbus.Conn
-	Address   bluetooth.MacAddress
+	Key       bluetooth.DeviceAddress
 }
 
 // AudioProfiles lists all available audio profiles for use with a device.
@@ -34,7 +34,8 @@ func (m *MediaPlayer) AudioProfiles() ([]bluetooth.AudioProfile, error) {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "media-audio-profiles",
-				"address", m.Address.String(),
+				"address", m.Key.Address.String(),
+				"adapter", m.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot fetch audio profiles of device"),
@@ -48,7 +49,8 @@ func (m *MediaPlayer) AudioProfiles() ([]bluetooth.AudioProfile, error) {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "media-audio-profiles",
-				"address", m.Address.String(),
+				"address", m.Key.Address.String(),
+				"adapter", m.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot fetch audio profiles of device"),
@@ -57,7 +59,7 @@ func (m *MediaPlayer) AudioProfiles() ([]bluetooth.AudioProfile, error) {
 
 	for _, card := range cards {
 		if addr, ok := card.PropList["device.string"]; ok {
-			if addr != m.Address.String() {
+			if addr != m.Key.Address.String() {
 				continue
 			}
 
@@ -82,7 +84,8 @@ func (m *MediaPlayer) AudioProfiles() ([]bluetooth.AudioProfile, error) {
 		errors.New("profile set empty"),
 		fctx.With(context.Background(),
 			"error_at", "media-audio-profiles",
-			"address", m.Address.String(),
+			"address", m.Key.Address.String(),
+			"adapter", m.Key.AssociatedAdapter.String(),
 		),
 		ftag.With(ftag.Internal),
 		fmsg.With("Cannot fetch audio profiles of device"),
@@ -97,7 +100,8 @@ func (m *MediaPlayer) SetAudioProfile(profile bluetooth.AudioProfile) error {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "media-audio-profiles-set",
-				"address", m.Address.String(),
+				"address", m.Key.Address.String(),
+				"adapter", m.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot set audio profile of device"),
@@ -110,7 +114,8 @@ func (m *MediaPlayer) SetAudioProfile(profile bluetooth.AudioProfile) error {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "media-audio-profiles-set",
-				"address", m.Address.String(),
+				"address", m.Key.Address.String(),
+				"adapter", m.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot set audio profile of device"),
@@ -132,7 +137,8 @@ func (m *MediaPlayer) Play() error {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "media-control-play",
-				"address", m.Address.String(),
+				"address", m.Key.Address.String(),
+				"adapter", m.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot send 'play' media control command to device"),
@@ -154,7 +160,8 @@ func (m *MediaPlayer) Pause() error {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "media-control-pause",
-				"address", m.Address.String(),
+				"address", m.Key.Address.String(),
+				"adapter", m.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot send 'pause' media control command to device"),
@@ -202,7 +209,8 @@ func (m *MediaPlayer) Next() error {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "media-control-next",
-				"address", m.Address.String(),
+				"address", m.Key.Address.String(),
+				"adapter", m.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot send 'next' media control command to device"),
@@ -224,7 +232,8 @@ func (m *MediaPlayer) Previous() error {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "media-control-previous",
-				"address", m.Address.String(),
+				"address", m.Key.Address.String(),
+				"adapter", m.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot send 'previous' media control command to device"),
@@ -246,7 +255,8 @@ func (m *MediaPlayer) FastForward() error {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "media-control-fastForward",
-				"address", m.Address.String(),
+				"address", m.Key.Address.String(),
+				"adapter", m.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot send 'fastForward' media control command to device"),
@@ -268,7 +278,8 @@ func (m *MediaPlayer) Rewind() error {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "media-control-rewind",
-				"address", m.Address.String(),
+				"address", m.Key.Address.String(),
+				"adapter", m.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot send 'rewind' media control command to device"),
@@ -290,7 +301,8 @@ func (m *MediaPlayer) Stop() error {
 			err,
 			fctx.With(context.Background(),
 				"error_at", "media-control-stop",
-				"address", m.Address.String(),
+				"address", m.Key.Address.String(),
+				"adapter", m.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.Internal),
 			fmsg.With("Cannot send 'stop' media control command to device"),
@@ -313,7 +325,8 @@ func (m *MediaPlayer) Properties() (bluetooth.MediaData, error) {
 			fault.Wrap(err,
 				fctx.With(context.Background(),
 					"error_at", "media-prop-path",
-					"address", m.Address.String(),
+					"address", m.Key.Address.String(),
+					"adapter", m.Key.AssociatedAdapter.String(),
 				),
 				ftag.With(ftag.Internal),
 				fmsg.With("Media player properties were not found for device"),
@@ -326,7 +339,8 @@ func (m *MediaPlayer) Properties() (bluetooth.MediaData, error) {
 			fault.Wrap(err,
 				fctx.With(context.Background(),
 					"error_at", "media-prop-track",
-					"address", m.Address.String(),
+					"address", m.Key.Address.String(),
+					"adapter", m.Key.AssociatedAdapter.String(),
 				),
 				ftag.With(ftag.Internal),
 				fmsg.With("Media track data cannot be parsed"),
@@ -364,12 +378,13 @@ func (m *MediaPlayer) ParseMap(values map[string]dbus.Variant) (bluetooth.MediaD
 
 // check checks if the device supports media control and playback.
 func (m *MediaPlayer) check() (dbus.ObjectPath, error) {
-	devicePath, ok := dbh.PathConverter.DbusPath(dbh.DbusPathDevice, m.Address)
+	devicePath, ok := dbh.PathConverter.DeviceDbusPath(dbh.DbusPathDevice, m.Key)
 	if !ok {
 		return "", fault.Wrap(errorkinds.ErrDeviceNotFound,
 			fctx.With(context.Background(),
 				"error_at", "device-check-store",
-				"address", m.Address.String(),
+				"address", m.Key.Address.String(),
+				"adapter", m.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.NotFound),
 			fmsg.With("Device does not exist"),
@@ -381,7 +396,8 @@ func (m *MediaPlayer) check() (dbus.ObjectPath, error) {
 		return "", fault.Wrap(errorkinds.ErrPropertyDataParse,
 			fctx.With(context.Background(),
 				"error_at", "media-player-props",
-				"address", m.Address.String(),
+				"address", m.Key.Address.String(),
+				"adapter", m.Key.AssociatedAdapter.String(),
 			),
 			ftag.With(ftag.NotFound),
 			fmsg.With("Cannot find/parse player properties"),
@@ -394,7 +410,8 @@ func (m *MediaPlayer) check() (dbus.ObjectPath, error) {
 			fault.Wrap(errorkinds.ErrMediaPlayerNotConnected,
 				fctx.With(context.Background(),
 					"error_at", "media-player-conn",
-					"address", m.Address.String(),
+					"address", m.Key.Address.String(),
+					"adapter", m.Key.AssociatedAdapter.String(),
 				),
 				ftag.With(ftag.Internal),
 				fmsg.With("Player is not connected"),
@@ -407,7 +424,8 @@ func (m *MediaPlayer) check() (dbus.ObjectPath, error) {
 			fault.Wrap(err,
 				fctx.With(context.Background(),
 					"error_at", "media-player-path",
-					"address", m.Address.String(),
+					"address", m.Key.Address.String(),
+					"adapter", m.Key.AssociatedAdapter.String(),
 				),
 				ftag.With(ftag.Internal),
 				fmsg.With("Cannot get device's media player path"),

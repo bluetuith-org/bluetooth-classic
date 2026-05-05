@@ -32,13 +32,13 @@ func GetPlatformInfo() *Command[platforminfo.PlatformInfo] {
 // AuthenticationReply invokes the "rpc auth" command.
 func AuthenticationReply(id int, input string) *Command[NoResult] {
 	return (&Command[NoResult]{cmd: "rpc auth"}).WithOptions(func(am OptionMap) {
-		am[AuthenticationIdOption] = strconv.FormatInt(int64(id), 10)
+		am[AuthenticationIDOption] = strconv.FormatInt(int64(id), 10)
 		am[ResponseOption] = input
 	})
 }
 
 // RegisterAgent registers the specified authentication agent with the daemon.
-func RegisterAgent(agent RpcAgent) *Command[NoResult] {
+func RegisterAgent(agent RPCAgent) *Command[NoResult] {
 	return (&Command[NoResult]{cmd: "rpc agent register"}).WithOption(AgentOption, agent.String())
 }
 
@@ -195,10 +195,12 @@ func (c *Command[T]) ExecuteWith(fn ExecuteFunc, timeoutSeconds ...int) (T, erro
 			switch any(result).(type) {
 			case NoResult:
 				return result, nil
+
+			default:
 			}
 
 			reply := make(map[string]T, 1)
-			if err := serde.UnmarshalJson(response.Data, &reply); err != nil {
+			if err := serde.UnmarshalJSON(response.Data, &reply); err != nil {
 				return result, err
 			}
 

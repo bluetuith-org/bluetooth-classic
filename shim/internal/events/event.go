@@ -13,13 +13,14 @@ import (
 	"github.com/bluetuith-org/bluetooth-classic/shim/internal/serde"
 )
 
+// RawEvents represents a raw event constraint.
 type RawEvents interface {
 	bluetooth.Events | AuthEventData
 }
 
 // ServerEvent describes a raw event that was sent from the server.
 type ServerEvent struct {
-	EventId     bluetooth.EventID     `json:"event_id,omitempty"`
+	EventID     bluetooth.EventID     `json:"event_id,omitempty"`
 	EventAction bluetooth.EventAction `json:"event_action"`
 	Event       codec.Raw             `json:"event"`
 }
@@ -31,6 +32,7 @@ func Unmarshal[T bluetooth.Events](ev ServerEvent) (T, error) {
 	return event, UnmarshalRawEvent(ev, &event)
 }
 
+// UnmarshalRawEvent unmarshals a raw event.
 func UnmarshalRawEvent[T RawEvents](ev ServerEvent, marshalTo *T) error {
 	var read int
 
@@ -58,5 +60,5 @@ func UnmarshalRawEvent[T RawEvents](ev ServerEvent, marshalTo *T) error {
 
 	ev.Event = ev.Event[read+1:]
 
-	return serde.UnmarshalJson(ev.Event, marshalTo)
+	return serde.UnmarshalJSON(ev.Event, marshalTo)
 }

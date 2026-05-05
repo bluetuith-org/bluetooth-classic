@@ -2,16 +2,17 @@
 
 package commands
 
-// RpcAgent describes the type of authentication agent.
-type RpcAgent string
+// RPCAgent describes the type of authentication agent.
+type RPCAgent string
 
+// The different types of authentication agents.
 const (
-	PairingAgent RpcAgent = "pairing"
-	ObexAgent    RpcAgent = "obex"
+	PairingAgent RPCAgent = "pairing"
+	ObexAgent    RPCAgent = "obex"
 )
 
 // String returns the string representation of the agent.
-func (o RpcAgent) String() string {
+func (o RPCAgent) String() string {
 	return string(o)
 }
 
@@ -25,7 +26,7 @@ const (
 	StateOption            Option = "--state"
 	ProfileOption          Option = "--uuid"
 	FileOption             Option = "--file"
-	AuthenticationIdOption Option = "--authentication-id"
+	AuthenticationIDOption Option = "--authentication-id"
 	ResponseOption         Option = "--response"
 	AgentOption            Option = "--agent-type"
 )

@@ -49,8 +49,7 @@ const (
 
 // MediaData holds the media player information.
 type MediaData struct {
-	// Address holds the Bluetooth MAC address of the device.
-	Address MacAddress `json:"address,omitempty" codec:"Address,omitempty" doc:"The Bluetooth MAC address of the device."`
+	DeviceAddress
 
 	// Status indicates the status of the player.
 	Status MediaStatus `json:"status,omitempty" codec:"Status,omitempty" enum:"playing,paused,forward-seek,reverse-seek,stopped" doc:"Indicates the status of the player."`
