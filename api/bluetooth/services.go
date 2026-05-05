@@ -1,6 +1,10 @@
 package bluetooth
 
-import "github.com/google/uuid"
+import (
+	"slices"
+
+	"github.com/google/uuid"
+)
 
 // Service Class identifiers.
 // Adapted from:
@@ -957,21 +961,22 @@ var Services = map[uint32]string{
 	0xfffd: "Fast IDentity Online Alliance (FIDO)",
 }
 
+var _baseUUID = []byte{0, 128, 95, 155, 52, 251}
+
+// BaseUUID returns the base bluetooth profile UUID in bytes.
+func BaseUUID() []byte {
+	return _baseUUID
+}
+
 // ServiceType returns a service description of the service UUID.
 // Adapted from:
 // https://github.com/bluez/bluez/blob/master/src/shared/util.c#L1189
-func ServiceType(serviceUUID string) string {
-	const serviceUUIDFormat = "-0000-1000-8000-00805f9b34fb"
-	if serviceUUID[8:] != serviceUUIDFormat {
+func ServiceType(serviceUUID uuid.UUID) string {
+	if IsVendorSpecificUUID(serviceUUID) {
 		return "Vendor specific"
 	}
 
-	parsedUUID, err := uuid.Parse(serviceUUID)
-	if err != nil {
-		return "Not parseable"
-	}
-
-	serviceType, ok := Services[parsedUUID.ID()]
+	serviceType, ok := Services[serviceUUID.ID()]
 	if !ok {
 		return "Unknown"
 	}
@@ -979,15 +984,15 @@ func ServiceType(serviceUUID string) string {
 	return serviceType
 }
 
-// ServiceExists checks if the service class ID exists in the UUID list.
-func ServiceExists(uuidList []string, svclass uint32) bool {
-	for _, serviceUUID := range uuidList {
-		parsedUUID, err := uuid.Parse(serviceUUID)
-		if err != nil {
-			return false
-		}
+// IsVendorSpecificUUID returns if a service profile UUID is a vendor-specific profile UUID.
+func IsVendorSpecificUUID(serviceUUID uuid.UUID) bool {
+	return slices.Compare(serviceUUID.NodeID(), _baseUUID) != 0
+}
 
-		if parsedUUID.ID() == svclass {
+// ServiceExists checks if the service class ID exists in the UUID list.
+func ServiceExists(uuidList uuid.UUIDs, svclass uint32) bool {
+	for _, serviceUUID := range uuidList {
+		if serviceUUID.ID() == svclass {
 			return true
 		}
 	}
