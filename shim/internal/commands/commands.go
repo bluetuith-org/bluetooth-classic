@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Session commands.
 // GetFeatureFlags invokes the "rpc feature-flags" command.
 func GetFeatureFlags() *Command[appfeatures.Features] {
 	return &Command[appfeatures.Features]{cmd: "rpc feature-flags"}
@@ -43,7 +42,6 @@ func RegisterAgent(agent RpcAgent) *Command[NoResult] {
 	return (&Command[NoResult]{cmd: "rpc agent register"}).WithOption(AgentOption, agent.String())
 }
 
-// Adapter commands.
 // AdapterProperties invokes the "adapter properties" command.
 func AdapterProperties(Address bluetooth.MacAddress) *Command[bluetooth.AdapterData] {
 	return (&Command[bluetooth.AdapterData]{cmd: "adapter properties"}).WithOption(AddressOption, Address.String())
@@ -88,7 +86,6 @@ func StopDiscovery(Address bluetooth.MacAddress) *Command[NoResult] {
 	return (&Command[NoResult]{cmd: "adapter discovery stop"}).WithOption(AddressOption, Address.String())
 }
 
-// Device commands.
 // DeviceProperties invokes the "device properties" command.
 func DeviceProperties(Address bluetooth.MacAddress) *Command[bluetooth.DeviceData] {
 	return (&Command[bluetooth.DeviceData]{cmd: "device properties"}).WithOption(AddressOption, Address.String())
@@ -135,7 +132,6 @@ func Remove(Address bluetooth.MacAddress) *Command[NoResult] {
 	return (&Command[NoResult]{cmd: "device remove"}).WithOption(AddressOption, Address.String())
 }
 
-// Obex commands.
 // CreateSession invokes the "device opp start-session" command.
 func CreateSession(Address bluetooth.MacAddress) *Command[NoResult] {
 	return (&Command[NoResult]{cmd: "device opp start-session"}).WithOption(AddressOption, Address.String())
@@ -173,7 +169,7 @@ func ResumeTransfer(Address bluetooth.MacAddress) *Command[NoResult] {
 func (c *Command[T]) ExecuteWith(fn ExecuteFunc, timeoutSeconds ...int) (T, error) {
 	var result T
 
-	var timeout = CommandReplyTimeout
+	timeout := CommandReplyTimeout
 	if timeoutSeconds != nil {
 		timeout = time.Duration(timeoutSeconds[0] * int(time.Second))
 	}
