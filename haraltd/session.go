@@ -53,7 +53,10 @@ type HaraltdSession struct {
 
 //revive:enable
 
-const socketName = "hd.sock"
+const (
+	socketName     = "hd.sock"
+	implementation = "haraltd"
+)
 
 // Start attempts to initialize a session with the system's Bluetooth daemon or service.
 // Upon complete initialization, it returns the session descriptor, and capabilities of
@@ -61,7 +64,7 @@ const socketName = "hd.sock"
 func (s *HaraltdSession) Start(authHandler bluetooth.SessionAuthorizer, cfg config.Configuration) (*ac.FeatureSet, platforminfo.PlatformInfo, error) {
 	var ce ac.Errors
 
-	platform := platforminfo.NewPlatformInfo("")
+	platform := platforminfo.NewPlatformInfo("", implementation)
 
 	var initialized bool
 	defer func() {
@@ -128,13 +131,14 @@ func (s *HaraltdSession) Start(authHandler bluetooth.SessionAuthorizer, cfg conf
 		return nil, platform,
 			fault.Wrap(
 				err,
-				fctx.With(context.Background(), "error_at", "haraltd-features"),
+				fctx.With(context.Background(), "error_at", "init-session-store"),
 				ftag.With(ftag.Internal),
 				fmsg.With("Cannot initialize the new session store"),
 			)
 	}
 
 	initialized = true
+	platformInfo.Implementation = implementation
 
 	for _, absentFeatures := range features.AbsentFeatures() {
 		ce.Append(ac.NewError(absentFeatures, errorkinds.ErrNotSupported))
