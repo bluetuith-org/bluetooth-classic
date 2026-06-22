@@ -103,7 +103,8 @@ func (b *agent) RequestPasskey(_ dbus.ObjectPath) (uint32, *dbus.Error) {
 func (b *agent) DisplayPinCode(devicePath dbus.ObjectPath, pincode string) *dbus.Error {
 	key, ok := dbh.PathConverter.DeviceAddress(dbh.DbusPathDevice, devicePath)
 	if !ok {
-		dbh.PublishError(errors.New(string(devicePath)),
+		dbh.PublishError(
+			errors.New(string(devicePath)),
 			"Bluez agent error: Device not found",
 			"error_at", "displaypin-device-address",
 		)
@@ -115,7 +116,8 @@ func (b *agent) DisplayPinCode(devicePath dbus.ObjectPath, pincode string) *dbus
 	defer b.Cancel()
 
 	if err := b.authHandler.DisplayPinCode(b.ctx, pincode, key); err != nil {
-		dbh.PublishError(err,
+		dbh.PublishError(
+			err,
 			"Bluez agent error: Authorization callback returned an error",
 			"error_at", "displaypin-device-address",
 		)
@@ -130,7 +132,8 @@ func (b *agent) DisplayPinCode(devicePath dbus.ObjectPath, pincode string) *dbus
 func (b *agent) DisplayPasskey(devicePath dbus.ObjectPath, passkey uint32, entered uint16) *dbus.Error {
 	key, ok := dbh.PathConverter.DeviceAddress(dbh.DbusPathDevice, devicePath)
 	if !ok {
-		dbh.PublishError(errors.New(string(devicePath)),
+		dbh.PublishError(
+			errors.New(string(devicePath)),
 			"Bluez agent error: Device not found",
 			"error_at", "displaypk-device-address",
 		)
@@ -142,7 +145,8 @@ func (b *agent) DisplayPasskey(devicePath dbus.ObjectPath, passkey uint32, enter
 	defer b.Cancel()
 
 	if err := b.authHandler.DisplayPasskey(b.ctx, passkey, entered, key); err != nil {
-		dbh.PublishError(err,
+		dbh.PublishError(
+			err,
 			"Bluez agent error: Authorization callback returned an error",
 			"error_at", "displaypk-device-address",
 		)
@@ -157,7 +161,8 @@ func (b *agent) DisplayPasskey(devicePath dbus.ObjectPath, passkey uint32, enter
 func (b *agent) RequestConfirmation(devicePath dbus.ObjectPath, passkey uint32) *dbus.Error {
 	key, ok := dbh.PathConverter.DeviceAddress(dbh.DbusPathDevice, devicePath)
 	if !ok {
-		dbh.PublishError(errors.New(string(devicePath)),
+		dbh.PublishError(
+			errors.New(string(devicePath)),
 			"Bluez agent error: Device not found",
 			"error_at", "authpk-device-address",
 		)
@@ -169,7 +174,8 @@ func (b *agent) RequestConfirmation(devicePath dbus.ObjectPath, passkey uint32) 
 	defer b.Cancel()
 
 	if err := b.authHandler.ConfirmPasskey(b.ctx, passkey, key); err != nil {
-		dbh.PublishError(err,
+		dbh.PublishError(
+			err,
 			"Bluez agent error: Authorization callback returned an error",
 			"error_at", "authpk-device-address",
 		)
@@ -184,7 +190,8 @@ func (b *agent) RequestConfirmation(devicePath dbus.ObjectPath, passkey uint32) 
 func (b *agent) RequestAuthorization(devicePath dbus.ObjectPath) *dbus.Error {
 	key, ok := dbh.PathConverter.DeviceAddress(dbh.DbusPathDevice, devicePath)
 	if !ok {
-		dbh.PublishError(errors.New(string(devicePath)),
+		dbh.PublishError(
+			errors.New(string(devicePath)),
 			"Bluez agent error: Device not found",
 			"error_at", "authpairing-device-address",
 		)
@@ -196,7 +203,8 @@ func (b *agent) RequestAuthorization(devicePath dbus.ObjectPath) *dbus.Error {
 	defer b.Cancel()
 
 	if err := b.authHandler.AuthorizePairing(b.ctx, key); err != nil {
-		dbh.PublishError(err,
+		dbh.PublishError(
+			err,
 			"Bluez agent error: Authorization callback returned an error",
 			"error_at", "authpairing-device-address",
 		)
@@ -211,7 +219,8 @@ func (b *agent) RequestAuthorization(devicePath dbus.ObjectPath) *dbus.Error {
 func (b *agent) AuthorizeService(devicePath dbus.ObjectPath, uuidstr string) *dbus.Error {
 	key, ok := dbh.PathConverter.DeviceAddress(dbh.DbusPathDevice, devicePath)
 	if !ok {
-		dbh.PublishError(errors.New(string(devicePath)),
+		dbh.PublishError(
+			errors.New(string(devicePath)),
 			"Bluez agent error: Device not found",
 			"error_at", "authservice-device-address",
 		)
@@ -224,7 +233,8 @@ func (b *agent) AuthorizeService(devicePath dbus.ObjectPath, uuidstr string) *db
 	defer b.Cancel()
 
 	if err := b.authHandler.AuthorizeService(b.ctx, u, key); err != nil {
-		dbh.PublishError(err,
+		dbh.PublishError(
+			err,
 			"Bluez agent error: Authorization callback returned an error",
 			"error_at", "authservice-device-address",
 		)

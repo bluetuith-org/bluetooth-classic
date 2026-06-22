@@ -179,7 +179,8 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 			key, ok := dbh.PathConverter.DeviceAddress(dbh.DbusPathObexTransfer, signal.Path)
 
 			if !ok {
-				dbh.PublishSignalError(errorkinds.ErrDeviceNotFound, signal,
+				dbh.PublishSignalError(
+					errorkinds.ErrDeviceNotFound, signal,
 					"Obex event handler error",
 					"error_at", "pchanged-obex-address",
 				)
@@ -194,7 +195,8 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 				propertyMap, &transferData,
 				"Status", "Transferred",
 			); err != nil {
-				dbh.PublishSignalError(err, signal,
+				dbh.PublishSignalError(
+					err, signal,
 					"Obex event handler error",
 					"error_at", "pchanged-obex-decode",
 				)
@@ -224,7 +226,8 @@ func (o *ObexManager) parseSignalData(signal *dbus.Signal) {
 			case dbh.ObexTransferIface:
 				key, ok := dbh.PathConverter.DeviceAddress(dbh.DbusPathObexTransfer, objectPath)
 				if !ok {
-					dbh.PublishSignalError(errorkinds.ErrDeviceNotFound, signal,
+					dbh.PublishSignalError(
+						errorkinds.ErrDeviceNotFound, signal,
 						"Obex event handler error",
 						"error_at", "premoved-obex-address",
 					)

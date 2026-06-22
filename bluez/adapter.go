@@ -18,7 +18,7 @@ import (
 
 // adapter describes a function call interface to invoke adapter related functions.
 type adapter struct {
-	b    *BluezSession
+	b    *DbusSession
 	path dbus.ObjectPath
 
 	key bluetooth.AdapterAddress

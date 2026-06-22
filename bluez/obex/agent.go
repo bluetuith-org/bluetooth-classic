@@ -98,7 +98,8 @@ func (o *agent) AuthorizePush(transferPath dbus.ObjectPath) (string, *dbus.Error
 
 	sessionProperty, err := o.sessionProperties(sessionPath)
 	if err != nil {
-		dbh.PublishError(err,
+		dbh.PublishError(
+			err,
 			"OBEX agent error: Could not get session properties",
 			"error_at", "authpush-session-properties",
 		)
@@ -108,7 +109,8 @@ func (o *agent) AuthorizePush(transferPath dbus.ObjectPath) (string, *dbus.Error
 
 	transferProperty, err := o.transferProperties(transferPath)
 	if err != nil {
-		dbh.PublishError(err,
+		dbh.PublishError(
+			err,
 			"OBEX agent error: Could not get transfer properties",
 			"error_at", "authpush-transfer-properties",
 		)
@@ -117,7 +119,8 @@ func (o *agent) AuthorizePush(transferPath dbus.ObjectPath) (string, *dbus.Error
 	}
 
 	if sessionProperty.Root == "" {
-		dbh.PublishError(err,
+		dbh.PublishError(
+			err,
 			"OBEX agent error: Session properties are empty",
 			"error_at", "authpush-session-rootdest",
 		)
@@ -126,7 +129,8 @@ func (o *agent) AuthorizePush(transferPath dbus.ObjectPath) (string, *dbus.Error
 	}
 
 	if transferProperty.Status == bluetooth.TransferError {
-		dbh.PublishError(err,
+		dbh.PublishError(
+			err,
 			"OBEX agent error: Transfer property is empty",
 			"error_at", "authpush-transfer-status",
 		)
@@ -143,7 +147,8 @@ func (o *agent) AuthorizePush(transferPath dbus.ObjectPath) (string, *dbus.Error
 	defer o.Cancel()
 
 	if err := o.authHandler.AuthorizeTransfer(o.ctx, transferProperty.ObjectPushData); err != nil {
-		dbh.PublishError(err,
+		dbh.PublishError(
+			err,
 			"OBEX agent error: Transfer was not authorized",
 			"error_at", "authpush-agent-authorize",
 		)

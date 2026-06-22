@@ -22,7 +22,8 @@ func PublishSignalError(err error, signal *dbus.Signal, message string, metadata
 // PublishError publishes an error to the error event stream.
 func PublishError(err error, message string, metadata ...string) {
 	bluetooth.ErrorEvents().PublishAdded(errorkinds.GenericError{
-		Errors: fault.Wrap(err,
+		Errors: fault.Wrap(
+			err,
 			fctx.With(context.Background(), metadata...),
 			ftag.With(ftag.Internal),
 			fmsg.With(message),
@@ -35,7 +36,8 @@ func wrapSignalErrors(err error, signal *dbus.Signal, message string, metadata .
 	md := append([]string{"signal-name", signal.Name, "signal-path", string(signal.Path)}, metadata...)
 
 	return errorkinds.GenericError{
-		Errors: fault.Wrap(err,
+		Errors: fault.Wrap(
+			err,
 			fctx.With(context.Background(), md...),
 			ftag.With(ftag.Internal),
 			fmsg.With(message),

@@ -24,8 +24,10 @@ import (
 	"github.com/godbus/dbus/v5"
 )
 
-// BluezSession describes a Linux Bluez DBus session.
-type BluezSession struct {
+const implementation = "BlueZ"
+
+// DbusSession describes a Linux Bluez DBus session.
+type DbusSession struct {
 	systemBus  *dbus.Conn
 	sessionBus *dbus.Conn
 	agent      *agent
@@ -37,7 +39,7 @@ type BluezSession struct {
 }
 
 // Start attempts to initialize and start interfacing with the Bluez daemon via DBus.
-func (b *BluezSession) Start(
+func (b *DbusSession) Start(
 	authHandler bluetooth.SessionAuthorizer,
 	cfg config.Configuration,
 ) (*ac.FeatureSet, platforminfo.PlatformInfo, error) {
@@ -48,7 +50,7 @@ func (b *BluezSession) Start(
 		authHandler = &bluetooth.DefaultAuthorizer{}
 	}
 
-	platform := platforminfo.NewPlatformInfo("BlueZ (DBus)")
+	platform := platforminfo.NewPlatformInfo("BlueZ (DBus)", implementation)
 
 	systemBus, err := dbus.SystemBus()
 	if err != nil {
@@ -72,7 +74,7 @@ func (b *BluezSession) Start(
 			)
 	}
 
-	*b = BluezSession{
+	*b = DbusSession{
 		systemBus:  systemBus,
 		sessionBus: sessionBus,
 		store:      sessionstore.NewSessionStore(),
@@ -126,7 +128,7 @@ func (b *BluezSession) Start(
 }
 
 // Stop attempts to stop interfacing with the Bluez daemon.
-func (b *BluezSession) Stop() error {
+func (b *DbusSession) Stop() error {
 	_ = b.obexman.Stop()
 	_ = b.agent.remove()
 
@@ -152,56 +154,56 @@ func (b *BluezSession) Stop() error {
 }
 
 // Adapters returns a list of known adapters.
-func (b *BluezSession) Adapters() ([]bluetooth.AdapterData, error) {
+func (b *DbusSession) Adapters() ([]bluetooth.AdapterData, error) {
 	return b.store.Adapters()
 }
 
 // Adapter returns a function call interface to invoke adapter related functions.
-func (b *BluezSession) Adapter(address bluetooth.AdapterAddress) bluetooth.Adapter {
+func (b *DbusSession) Adapter(address bluetooth.AdapterAddress) bluetooth.Adapter {
 	return &adapter{b: b, key: address}
 }
 
 // Device returns a function call interface to invoke device related functions.
-func (b *BluezSession) Device(address bluetooth.DeviceAddress) bluetooth.Device {
+func (b *DbusSession) Device(address bluetooth.DeviceAddress) bluetooth.Device {
 	return &device{b: b, key: address}
 }
 
 // Obex returns a function call interface to invoke obex related functions.
-func (b *BluezSession) Obex(address bluetooth.DeviceAddress) bluetooth.Obex {
+func (b *DbusSession) Obex(address bluetooth.DeviceAddress) bluetooth.Obex {
 	return &obex.Obex{SessionBus: b.sessionBus, Key: address}
 }
 
 // Network returns a function call interface to invoke network related functions.
-func (b *BluezSession) Network(address bluetooth.DeviceAddress) bluetooth.Network {
+func (b *DbusSession) Network(address bluetooth.DeviceAddress) bluetooth.Network {
 	return &nm.Network{NetManager: b.netman, Key: address}
 }
 
 // MediaPlayer returns a function call interface to invoke mediaplayer related functions.
-func (b *BluezSession) MediaPlayer(address bluetooth.DeviceAddress) bluetooth.MediaPlayer {
+func (b *DbusSession) MediaPlayer(address bluetooth.DeviceAddress) bluetooth.MediaPlayer {
 	return &mp.MediaPlayer{SystemBus: b.systemBus, Key: address}
 }
 
 // adapterInternal returns an adapter-related function call interface for internal use.
 // This is used primarily to initialize adapterInternal objects.
-func (b *BluezSession) adapterInternal(path dbus.ObjectPath) *adapter {
+func (b *DbusSession) adapterInternal(path dbus.ObjectPath) *adapter {
 	return &adapter{b: b, path: path}
 }
 
 // deviceInternal returns an device-related function call interface for internal use.
 // This is used primarily to initialize deviceInternal objects.
-func (b *BluezSession) deviceInternal(path dbus.ObjectPath) *device {
+func (b *DbusSession) deviceInternal(path dbus.ObjectPath) *device {
 	return &device{b: b, path: path}
 }
 
 // mediaPlayerInternal returns an mediaplayer-related function call interface for internal use.
 // This is used primarily to initialize mediaPlayerInternal objects.
-func (b *BluezSession) mediaPlayerInternal() *mp.MediaPlayer {
+func (b *DbusSession) mediaPlayerInternal() *mp.MediaPlayer {
 	return &mp.MediaPlayer{SystemBus: b.systemBus}
 }
 
 // refreshStore refreshes the global session store with adapter and device objects
 // that are retrieved from the Bluez DBus interface (system bus).
-func (b *BluezSession) refreshStore() error {
+func (b *DbusSession) refreshStore() error {
 	objects := make(map[dbus.ObjectPath]map[string]map[string]dbus.Variant)
 	if err := b.systemBus.Object(dbh.BluezBusName, "/").
 		Call(dbh.DbusObjectManagerIface, 0).
@@ -231,7 +233,7 @@ func (b *BluezSession) refreshStore() error {
 }
 
 // watchBluezSystemBus will register a signal to receive events from the bluez dbus interface.
-func (b *BluezSession) watchBluezSystemBus() {
+func (b *DbusSession) watchBluezSystemBus() {
 	signalMatch := "type='signal', sender='org.bluez'"
 	b.systemBus.BusObject().Call(dbh.DbusSignalAddMatchIface, 0, signalMatch)
 
@@ -246,7 +248,7 @@ func (b *BluezSession) watchBluezSystemBus() {
 // parseSignalData parses bluez DBus signal data.
 //
 //gocyclo:ignore
-func (b *BluezSession) parseSignalData(signal *dbus.Signal) {
+func (b *DbusSession) parseSignalData(signal *dbus.Signal) {
 	switch signal.Name {
 	case dbh.DbusSignalPropertyChangedIface:
 		if signal.Body != nil && len(signal.Body) < 2 {

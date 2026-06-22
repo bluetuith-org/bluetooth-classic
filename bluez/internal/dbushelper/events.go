@@ -14,7 +14,8 @@ func PublishAdapterUpdateEvent(store *sstore.SessionStore, signal *dbus.Signal, 
 	go func() {
 		address, ok := PathConverter.AdapterAddress(signal.Path)
 		if !ok {
-			PublishSignalError(errorkinds.ErrAdapterNotFound, signal,
+			PublishSignalError(
+				errorkinds.ErrAdapterNotFound, signal,
 				"Bluez event handler error",
 				"error_at", "pchanged-adapter-address",
 			)
@@ -24,7 +25,8 @@ func PublishAdapterUpdateEvent(store *sstore.SessionStore, signal *dbus.Signal, 
 
 		updated, err := store.UpdateAdapter(address, DecodeAdapterFunc(variants))
 		if err != nil {
-			PublishSignalError(err, signal,
+			PublishSignalError(
+				err, signal,
 				"Bluez event handler error",
 				"error_at", "pchanged-adapter-update",
 			)
@@ -41,7 +43,8 @@ func PublishDeviceUpdateEvent(store *sstore.SessionStore, signal *dbus.Signal, v
 	go func() {
 		key, ok := PathConverter.DeviceAddress(DbusPathDevice, signal.Path)
 		if !ok {
-			PublishSignalError(errorkinds.ErrDeviceNotFound, signal,
+			PublishSignalError(
+				errorkinds.ErrDeviceNotFound, signal,
 				"Bluez event handler error",
 				"error_at", "pchanged-adapter-address",
 			)
@@ -51,7 +54,8 @@ func PublishDeviceUpdateEvent(store *sstore.SessionStore, signal *dbus.Signal, v
 
 		updated, err := store.UpdateDevice(key, DecodeDeviceFunc(variants))
 		if err != nil {
-			PublishSignalError(err, signal,
+			PublishSignalError(
+				err, signal,
 				"Bluez event handler error",
 				"error_at", "pchanged-adapter-update",
 			)

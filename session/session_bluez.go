@@ -9,5 +9,5 @@ import (
 
 // NewSession returns a Bluez-specific session handler.
 func NewSession() bluetooth.Session {
-	return &bluez.BluezSession{}
+	return &bluez.DbusSession{}
 }

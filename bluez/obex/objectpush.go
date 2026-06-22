@@ -39,7 +39,8 @@ func (o *fileTransfer) CreateSession(ctx context.Context) error {
 	case <-ctx.Done():
 		return fault.Wrap(
 			context.Canceled,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "obex-createsession-cancelled",
 				"address", o.Key.Address.String(),
 				"adapter", o.Key.AssociatedAdapter.String(),
@@ -52,7 +53,8 @@ func (o *fileTransfer) CreateSession(ctx context.Context) error {
 		if call.Err != nil {
 			return fault.Wrap(
 				call.Err,
-				fctx.With(context.Background(),
+				fctx.With(
+					context.Background(),
 					"error_at", "obex-createsession-methodcall",
 					"address", o.Key.Address.String(),
 					"adapter", o.Key.AssociatedAdapter.String(),
@@ -65,7 +67,8 @@ func (o *fileTransfer) CreateSession(ctx context.Context) error {
 		if err := call.Store(&sessionPath); err != nil {
 			return fault.Wrap(
 				err,
-				fctx.With(context.Background(),
+				fctx.With(
+					context.Background(),
 					"error_at", "obex-createsession-path",
 					"address", o.Key.Address.String(),
 					"adapter", o.Key.AssociatedAdapter.String(),
@@ -91,7 +94,8 @@ func (o *fileTransfer) RemoveSession() error {
 	if !ok {
 		return fault.Wrap(
 			errorkinds.ErrPropertyDataParse,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "obex-removesession-path",
 				"address", o.Key.Address.String(),
 				"adapter", o.Key.AssociatedAdapter.String(),
@@ -104,7 +108,8 @@ func (o *fileTransfer) RemoveSession() error {
 	if err := o.callClient("RemoveSession", sessionPath).Store(); err != nil {
 		return fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "obex-removesession-methodcall",
 				"address", o.Key.Address.String(),
 				"adapter", o.Key.AssociatedAdapter.String(),
@@ -131,7 +136,8 @@ func (o *fileTransfer) SendFile(filepath string) (bluetooth.ObjectPushData, erro
 		return bluetooth.ObjectPushData{},
 			fault.Wrap(
 				errorkinds.ErrPropertyDataParse,
-				fctx.With(context.Background(),
+				fctx.With(
+					context.Background(),
 					"error_at", "obex-sendfile-sessionpath",
 					"address", o.Key.Address.String(),
 					"adapter", o.Key.AssociatedAdapter.String(),
@@ -147,7 +153,8 @@ func (o *fileTransfer) SendFile(filepath string) (bluetooth.ObjectPushData, erro
 		return bluetooth.ObjectPushData{},
 			fault.Wrap(
 				err,
-				fctx.With(context.Background(),
+				fctx.With(
+					context.Background(),
 					"error_at", "obex-sendfile-methodcall",
 					"address", o.Key.Address.String(),
 					"adapter", o.Key.AssociatedAdapter.String(),
@@ -164,7 +171,8 @@ func (o *fileTransfer) SendFile(filepath string) (bluetooth.ObjectPushData, erro
 		return bluetooth.ObjectPushData{},
 			fault.Wrap(
 				err,
-				fctx.With(context.Background(),
+				fctx.With(
+					context.Background(),
 					"error_at", "obex-sendfile-decode",
 					"address", o.Key.Address.String(),
 					"adapter", o.Key.AssociatedAdapter.String(),
@@ -187,7 +195,8 @@ func (o *fileTransfer) CancelTransfer() error {
 	if !ok {
 		return fault.Wrap(
 			errorkinds.ErrPropertyDataParse,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "obex-canceltransfer-path",
 				"address", o.Key.Address.String(),
 				"adapter", o.Key.AssociatedAdapter.String(),
@@ -200,7 +209,8 @@ func (o *fileTransfer) CancelTransfer() error {
 	if err := o.callTransfer(transferPath, "Cancel").Store(); err != nil {
 		return fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "obex-canceltransfer-call",
 				"address", o.Key.Address.String(),
 				"adapter", o.Key.AssociatedAdapter.String(),
@@ -223,7 +233,8 @@ func (o *fileTransfer) SuspendTransfer() error {
 	if !ok {
 		return fault.Wrap(
 			errorkinds.ErrPropertyDataParse,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "obex-suspendtransfer-path",
 				"address", o.Key.Address.String(),
 				"adapter", o.Key.AssociatedAdapter.String(),
@@ -236,7 +247,8 @@ func (o *fileTransfer) SuspendTransfer() error {
 	if err := o.callTransfer(transferPath, "Suspend").Store(); err != nil {
 		return fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "obex-suspendtransfer-call",
 				"address", o.Key.Address.String(),
 				"adapter", o.Key.AssociatedAdapter.String(),
@@ -259,7 +271,8 @@ func (o *fileTransfer) ResumeTransfer() error {
 	if !ok {
 		return fault.Wrap(
 			errorkinds.ErrPropertyDataParse,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "obex-resumetransfer-path",
 				"address", o.Key.Address.String(),
 				"adapter", o.Key.AssociatedAdapter.String(),
@@ -272,7 +285,8 @@ func (o *fileTransfer) ResumeTransfer() error {
 	if err := o.callTransfer(transferPath, "Resume").Store(); err != nil {
 		return fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "obex-resumetransfer-call",
 				"address", o.Key.Address.String(),
 				"adapter", o.Key.AssociatedAdapter.String(),
@@ -288,8 +302,10 @@ func (o *fileTransfer) ResumeTransfer() error {
 // check checks whether the SessionBus was initialized.
 func (o *fileTransfer) check() error {
 	if o.SessionBus == nil {
-		return fault.Wrap(errorkinds.ErrObexInitSession,
-			fctx.With(context.Background(),
+		return fault.Wrap(
+			errorkinds.ErrObexInitSession,
+			fctx.With(
+				context.Background(),
 				"error_at", "obex-check-sessionbus",
 				"address", o.Key.Address.String(),
 				"adapter", o.Key.AssociatedAdapter.String(),
@@ -301,8 +317,10 @@ func (o *fileTransfer) check() error {
 
 	_, ok := dbh.PathConverter.DeviceDbusPath(dbh.DbusPathDevice, o.Key)
 	if !ok {
-		return fault.Wrap(errorkinds.ErrDeviceNotFound,
-			fctx.With(context.Background(),
+		return fault.Wrap(
+			errorkinds.ErrDeviceNotFound,
+			fctx.With(
+				context.Background(),
 				"error_at", "obex-check-device",
 				"address", o.Key.Address.String(),
 				"adapter", o.Key.AssociatedAdapter.String(),

@@ -32,7 +32,8 @@ func (m *MediaPlayer) AudioProfiles() ([]bluetooth.AudioProfile, error) {
 	if err != nil {
 		return nil, fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "media-audio-profiles",
 				"address", m.Key.Address.String(),
 				"adapter", m.Key.AssociatedAdapter.String(),
@@ -47,7 +48,8 @@ func (m *MediaPlayer) AudioProfiles() ([]bluetooth.AudioProfile, error) {
 	if err != nil {
 		return nil, fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "media-audio-profiles",
 				"address", m.Key.Address.String(),
 				"adapter", m.Key.AssociatedAdapter.String(),
@@ -82,7 +84,8 @@ func (m *MediaPlayer) AudioProfiles() ([]bluetooth.AudioProfile, error) {
 
 	return nil, fault.Wrap(
 		errors.New("profile set empty"),
-		fctx.With(context.Background(),
+		fctx.With(
+			context.Background(),
 			"error_at", "media-audio-profiles",
 			"address", m.Key.Address.String(),
 			"adapter", m.Key.AssociatedAdapter.String(),
@@ -98,7 +101,8 @@ func (m *MediaPlayer) SetAudioProfile(profile bluetooth.AudioProfile) error {
 	if err != nil {
 		return fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "media-audio-profiles-set",
 				"address", m.Key.Address.String(),
 				"adapter", m.Key.AssociatedAdapter.String(),
@@ -112,7 +116,8 @@ func (m *MediaPlayer) SetAudioProfile(profile bluetooth.AudioProfile) error {
 	if err := client.SetCardProfile(profile.Index, profile.Name); err != nil {
 		return fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "media-audio-profiles-set",
 				"address", m.Key.Address.String(),
 				"adapter", m.Key.AssociatedAdapter.String(),
@@ -135,7 +140,8 @@ func (m *MediaPlayer) Play() error {
 	if err := m.callMediaPlayer(playerPath, "Play"); err != nil {
 		return fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "media-control-play",
 				"address", m.Key.Address.String(),
 				"adapter", m.Key.AssociatedAdapter.String(),
@@ -158,7 +164,8 @@ func (m *MediaPlayer) Pause() error {
 	if err := m.callMediaPlayer(playerPath, "Pause"); err != nil {
 		return fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "media-control-pause",
 				"address", m.Key.Address.String(),
 				"adapter", m.Key.AssociatedAdapter.String(),
@@ -207,7 +214,8 @@ func (m *MediaPlayer) Next() error {
 	if err := m.callMediaPlayer(playerPath, "Next"); err != nil {
 		return fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "media-control-next",
 				"address", m.Key.Address.String(),
 				"adapter", m.Key.AssociatedAdapter.String(),
@@ -230,7 +238,8 @@ func (m *MediaPlayer) Previous() error {
 	if err := m.callMediaPlayer(playerPath, "Previous"); err != nil {
 		return fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "media-control-previous",
 				"address", m.Key.Address.String(),
 				"adapter", m.Key.AssociatedAdapter.String(),
@@ -253,7 +262,8 @@ func (m *MediaPlayer) FastForward() error {
 	if err := m.callMediaPlayer(playerPath, "FastForward"); err != nil {
 		return fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "media-control-fastForward",
 				"address", m.Key.Address.String(),
 				"adapter", m.Key.AssociatedAdapter.String(),
@@ -276,7 +286,8 @@ func (m *MediaPlayer) Rewind() error {
 	if err := m.callMediaPlayer(playerPath, "Rewind"); err != nil {
 		return fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "media-control-rewind",
 				"address", m.Key.Address.String(),
 				"adapter", m.Key.AssociatedAdapter.String(),
@@ -299,7 +310,8 @@ func (m *MediaPlayer) Stop() error {
 	if err := m.callMediaPlayer(playerPath, "Stop"); err != nil {
 		return fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "media-control-stop",
 				"address", m.Key.Address.String(),
 				"adapter", m.Key.AssociatedAdapter.String(),
@@ -322,8 +334,10 @@ func (m *MediaPlayer) Properties() (bluetooth.MediaData, error) {
 	propertyMap, err := m.mediaPlayerProperties(playerPath)
 	if err != nil {
 		return bluetooth.MediaData{},
-			fault.Wrap(err,
-				fctx.With(context.Background(),
+			fault.Wrap(
+				err,
+				fctx.With(
+					context.Background(),
 					"error_at", "media-prop-path",
 					"address", m.Key.Address.String(),
 					"adapter", m.Key.AssociatedAdapter.String(),
@@ -336,8 +350,10 @@ func (m *MediaPlayer) Properties() (bluetooth.MediaData, error) {
 	properties, err := m.ParseMap(propertyMap)
 	if err != nil {
 		return bluetooth.MediaData{},
-			fault.Wrap(err,
-				fctx.With(context.Background(),
+			fault.Wrap(
+				err,
+				fctx.With(
+					context.Background(),
 					"error_at", "media-prop-track",
 					"address", m.Key.Address.String(),
 					"adapter", m.Key.AssociatedAdapter.String(),
@@ -380,8 +396,10 @@ func (m *MediaPlayer) ParseMap(values map[string]dbus.Variant) (bluetooth.MediaD
 func (m *MediaPlayer) check() (dbus.ObjectPath, error) {
 	devicePath, ok := dbh.PathConverter.DeviceDbusPath(dbh.DbusPathDevice, m.Key)
 	if !ok {
-		return "", fault.Wrap(errorkinds.ErrDeviceNotFound,
-			fctx.With(context.Background(),
+		return "", fault.Wrap(
+			errorkinds.ErrDeviceNotFound,
+			fctx.With(
+				context.Background(),
 				"error_at", "device-check-store",
 				"address", m.Key.Address.String(),
 				"adapter", m.Key.AssociatedAdapter.String(),
@@ -393,8 +411,10 @@ func (m *MediaPlayer) check() (dbus.ObjectPath, error) {
 
 	mediaControl, err := m.mediaControlProperties(devicePath)
 	if err != nil {
-		return "", fault.Wrap(errorkinds.ErrPropertyDataParse,
-			fctx.With(context.Background(),
+		return "", fault.Wrap(
+			errorkinds.ErrPropertyDataParse,
+			fctx.With(
+				context.Background(),
 				"error_at", "media-player-props",
 				"address", m.Key.Address.String(),
 				"adapter", m.Key.AssociatedAdapter.String(),
@@ -407,8 +427,10 @@ func (m *MediaPlayer) check() (dbus.ObjectPath, error) {
 	connected, ok := mediaControl["Connected"].Value().(bool)
 	if !ok || !connected {
 		return "",
-			fault.Wrap(errorkinds.ErrMediaPlayerNotConnected,
-				fctx.With(context.Background(),
+			fault.Wrap(
+				errorkinds.ErrMediaPlayerNotConnected,
+				fctx.With(
+					context.Background(),
 					"error_at", "media-player-conn",
 					"address", m.Key.Address.String(),
 					"adapter", m.Key.AssociatedAdapter.String(),
@@ -421,8 +443,10 @@ func (m *MediaPlayer) check() (dbus.ObjectPath, error) {
 	playerPath, ok := mediaControl["Player"].Value().(dbus.ObjectPath)
 	if !ok {
 		return "",
-			fault.Wrap(err,
-				fctx.With(context.Background(),
+			fault.Wrap(
+				err,
+				fctx.With(
+					context.Background(),
 					"error_at", "media-player-path",
 					"address", m.Key.Address.String(),
 					"adapter", m.Key.AssociatedAdapter.String(),

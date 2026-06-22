@@ -73,7 +73,8 @@ func (n *Network) Connect(name string, nt bluetooth.NetworkType) error {
 	if err != nil {
 		return fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "network-connect-active",
 				"address", n.Key.Address.String(),
 				"adapter", n.Key.AssociatedAdapter.String(),
@@ -91,7 +92,8 @@ func (n *Network) Connect(name string, nt bluetooth.NetworkType) error {
 	if err != nil {
 		return fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "network-connect-activated",
 				"address", n.Key.Address.String(),
 				"adapter", n.Key.AssociatedAdapter.String(),
@@ -108,7 +110,8 @@ func (n *Network) Connect(name string, nt bluetooth.NetworkType) error {
 	if err := n.createConnection(name, nt); err != nil {
 		return fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "network-connect-create",
 				"address", n.Key.Address.String(),
 				"adapter", n.Key.AssociatedAdapter.String(),
@@ -139,7 +142,8 @@ func (n *Network) Disconnect() error {
 	if err := n.DeactivateConnection(activeConn); err != nil {
 		return fault.Wrap(
 			err,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "network-disconnect-deactivated",
 				"address", n.Key.Address.String(),
 				"adapter", n.Key.AssociatedAdapter.String(),
@@ -353,7 +357,8 @@ func (n *Network) check() error {
 	if n.NetManager == nil {
 		return fault.Wrap(
 			errorkinds.ErrNetworkInitSession,
-			fctx.With(context.Background(),
+			fctx.With(
+				context.Background(),
 				"error_at", "network-check-manager",
 				"address", n.Key.Address.String(),
 				"adapter", n.Key.AssociatedAdapter.String(),
@@ -365,8 +370,10 @@ func (n *Network) check() error {
 
 	_, ok := dbh.PathConverter.DeviceDbusPath(dbh.DbusPathDevice, n.Key)
 	if !ok {
-		return fault.Wrap(errorkinds.ErrDeviceNotFound,
-			fctx.With(context.Background(),
+		return fault.Wrap(
+			errorkinds.ErrDeviceNotFound,
+			fctx.With(
+				context.Background(),
 				"error_at", "network-check-device",
 				"address", n.Key.Address.String(),
 				"adapter", n.Key.AssociatedAdapter.String(),
@@ -382,7 +389,8 @@ func (n *Network) check() error {
 // toMap returns a connection setting as a map.
 func (n connectionSettings) toMap() map[string]map[string]any {
 	connType := n.ConnectionType.String()
-	name := fmt.Sprintf("%s Access Point (%s)",
+	name := fmt.Sprintf(
+		"%s Access Point (%s)",
 		n.Name, strings.ToUpper(connType),
 	)
 
