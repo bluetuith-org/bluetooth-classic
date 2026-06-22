@@ -14,6 +14,12 @@ require (
 
 require github.com/mafik/pulseaudio v0.0.0-20240327130323-384e01075e6e
 
-require github.com/rs/xid v1.6.0
+require (
+	github.com/bluetuith-org/libffi-go v0.7.2
+	github.com/rs/xid v1.6.0
+)
 
-require golang.org/x/sys v0.46.0 // indirect
+require (
+	github.com/ebitengine/purego v0.10.1 // indirect
+	golang.org/x/sys v0.46.0 // indirect
+)
