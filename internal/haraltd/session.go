@@ -24,9 +24,9 @@ import (
 	"github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
 	sstore "github.com/bluetuith-org/bluetooth-classic/api/helpers/sessionstore"
 	"github.com/bluetuith-org/bluetooth-classic/api/platforminfo"
-	"github.com/bluetuith-org/bluetooth-classic/haraltd/internal/commands"
-	"github.com/bluetuith-org/bluetooth-classic/haraltd/internal/events"
-	"github.com/bluetuith-org/bluetooth-classic/haraltd/internal/serde"
+	"github.com/bluetuith-org/bluetooth-classic/internal/haraltd/internal/commands"
+	"github.com/bluetuith-org/bluetooth-classic/internal/haraltd/internal/events"
+	"github.com/bluetuith-org/bluetooth-classic/internal/haraltd/internal/serde"
 )
 
 // HaraltdSession describes a connected session with a running haraltd RPC server.

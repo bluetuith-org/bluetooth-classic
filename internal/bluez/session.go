@@ -17,10 +17,10 @@ import (
 	errorkinds "github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
 	"github.com/bluetuith-org/bluetooth-classic/api/helpers/sessionstore"
 	"github.com/bluetuith-org/bluetooth-classic/api/platforminfo"
-	dbh "github.com/bluetuith-org/bluetooth-classic/bluez/internal/dbushelper"
-	mp "github.com/bluetuith-org/bluetooth-classic/bluez/mediaplayer"
-	nm "github.com/bluetuith-org/bluetooth-classic/bluez/networkmanager"
-	"github.com/bluetuith-org/bluetooth-classic/bluez/obex"
+	dbh "github.com/bluetuith-org/bluetooth-classic/internal/bluez/internal/dbushelper"
+	mp "github.com/bluetuith-org/bluetooth-classic/internal/bluez/mediaplayer"
+	nm "github.com/bluetuith-org/bluetooth-classic/internal/bluez/networkmanager"
+	"github.com/bluetuith-org/bluetooth-classic/internal/bluez/obex"
 	"github.com/godbus/dbus/v5"
 )
 

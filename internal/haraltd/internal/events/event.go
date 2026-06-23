@@ -10,7 +10,7 @@ import (
 	"github.com/ugorji/go/codec"
 
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
-	"github.com/bluetuith-org/bluetooth-classic/haraltd/internal/serde"
+	"github.com/bluetuith-org/bluetooth-classic/internal/haraltd/internal/serde"
 )
 
 // RawEvents represents a raw event constraint.

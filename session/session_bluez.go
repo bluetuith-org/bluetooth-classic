@@ -4,7 +4,7 @@ package session
 
 import (
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
-	"github.com/bluetuith-org/bluetooth-classic/bluez"
+	"github.com/bluetuith-org/bluetooth-classic/internal/bluez"
 )
 
 // NewSession returns a Bluez-specific session handler.

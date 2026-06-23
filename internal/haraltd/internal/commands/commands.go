@@ -10,7 +10,7 @@ import (
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	"github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
 	"github.com/bluetuith-org/bluetooth-classic/api/platforminfo"
-	"github.com/bluetuith-org/bluetooth-classic/haraltd/internal/serde"
+	"github.com/bluetuith-org/bluetooth-classic/internal/haraltd/internal/serde"
 	"github.com/google/uuid"
 )
 

@@ -13,7 +13,7 @@ import (
 	ac "github.com/bluetuith-org/bluetooth-classic/api/appfeatures"
 	bluetooth "github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	errorkinds "github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
-	dbh "github.com/bluetuith-org/bluetooth-classic/bluez/internal/dbushelper"
+	dbh "github.com/bluetuith-org/bluetooth-classic/internal/bluez/internal/dbushelper"
 )
 
 // Obex describes a Bluez Obex session.

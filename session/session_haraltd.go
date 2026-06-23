@@ -4,7 +4,7 @@ package session
 
 import (
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
-	"github.com/bluetuith-org/bluetooth-classic/haraltd"
+	"github.com/bluetuith-org/bluetooth-classic/internal/haraltd"
 )
 
 // NewSession returns a platform-specific session handler.

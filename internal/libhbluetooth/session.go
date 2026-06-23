@@ -15,7 +15,7 @@ import (
 	"github.com/bluetuith-org/bluetooth-classic/api/config"
 	"github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
 	"github.com/bluetuith-org/bluetooth-classic/api/platforminfo"
-	"github.com/bluetuith-org/bluetooth-classic/libhbluetooth/internal/lib"
+	"github.com/bluetuith-org/bluetooth-classic/internal/libhbluetooth/internal/lib"
 
 	ac "github.com/bluetuith-org/bluetooth-classic/api/appfeatures"
 	sstore "github.com/bluetuith-org/bluetooth-classic/api/helpers/sessionstore"

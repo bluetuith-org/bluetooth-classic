@@ -1,6 +1,6 @@
-//go:build !linux && haraltd
+//go:build !linux && libhbluetooth
 
-package haraltd
+package libhbluetooth
 
 import (
 	"context"
@@ -11,61 +11,71 @@ import (
 	"github.com/Southclaws/fault/ftag"
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	"github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
-	"github.com/bluetuith-org/bluetooth-classic/haraltd/internal/commands"
+	"github.com/bluetuith-org/bluetooth-classic/internal/libhbluetooth/internal/lib"
 	"github.com/google/uuid"
 )
 
-// device describes a function call interface to invoke device related functions.
 type device struct {
-	s   *HaraltdSession
+	s   *BluetoothLibrary
 	key bluetooth.DeviceAddress
 }
 
 // Pair will attempt to pair a bluetooth device that is in pairing mode.
 func (d *device) Pair() error {
-	_, err := commands.Pair(d.key.Address).ExecuteWith(d.s.executor)
-	return err
+	if _, err := d.check(); err != nil {
+		return err
+	}
+
+	return lib.DevicePair(d.key)
 }
 
 // CancelPairing will cancel a pairing attempt.
 func (d *device) CancelPairing() error {
-	_, err := commands.CancelPairing(d.key.Address).ExecuteWith(d.s.executor)
-	return err
+	if _, err := d.check(); err != nil {
+		return err
+	}
+
+	return lib.DevicePairCancel(d.key)
 }
 
 // Connect will attempt to connect an already paired bluetooth device
-// to an device.
+// to an adapter.
 func (d *device) Connect() error {
-	_, err := commands.Connect(d.key.Address).ExecuteWith(d.s.executor)
-	return err
+	if _, err := d.check(); err != nil {
+		return err
+	}
+
+	return lib.DeviceConnect(d.key)
 }
 
-// Disconnect will disconnect the bluetooth device from the device.
+// Disconnect will disconnect the bluetooth device from the adapter.
 func (d *device) Disconnect() error {
-	_, err := commands.Disconnect(d.key.Address).ExecuteWith(d.s.executor)
-	return err
+	if _, err := d.check(); err != nil {
+		return err
+	}
+
+	return lib.DeviceDisconnect(d.key)
 }
 
 // ConnectProfile will attempt to connect an already paired bluetooth device
-// to an device, using a specific Bluetooth profile UUID .
-func (d *device) ConnectProfile(profileUUID uuid.UUID) error {
-	_, err := commands.ConnectProfile(d.key.Address, profileUUID).ExecuteWith(d.s.executor)
-
-	return err
+// to an adapter, using a specific Bluetooth profile UUID .
+func (d *device) ConnectProfile(_ uuid.UUID) error {
+	return errorkinds.ErrNotSupported
 }
 
 // DisconnectProfile will attempt to disconnect an already paired bluetooth device
-// to an device, using a specific Bluetooth profile UUID .
-func (d *device) DisconnectProfile(profileUUID uuid.UUID) error {
-	_, err := commands.DisconnectProfile(d.key.Address, profileUUID).ExecuteWith(d.s.executor)
-
-	return err
+// to an adapter, using a specific Bluetooth profile UUID .
+func (d *device) DisconnectProfile(_ uuid.UUID) error {
+	return errorkinds.ErrNotSupported
 }
 
-// Remove removes a device from its associated device.
+// Remove removes a device from its associated adapter.
 func (d *device) Remove() error {
-	_, err := commands.Remove(d.key.Address).ExecuteWith(d.s.executor)
-	return err
+	if _, err := d.check(); err != nil {
+		return err
+	}
+
+	return lib.DeviceRemove(d.key)
 }
 
 // SetTrusted sets the device 'trust' status within its associated adapter.
@@ -112,15 +122,6 @@ func (d *device) check() (bluetooth.DeviceData, error) {
 			fmsg.With("Adapter does not exist"),
 		)
 	}
-
-	return device, nil
-}
-
-// appendProperties appends any additional properties to the provided device and returns
-// the new result.
-func (d *device) appendProperties(device bluetooth.DeviceData, adapter bluetooth.AdapterData) (bluetooth.DeviceData, error) {
-	device.AssociatedAdapter = adapter.Address
-	device.Type = bluetooth.DeviceTypeFromClass(device.Class)
 
 	return device, nil
 }

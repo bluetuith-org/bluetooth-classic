@@ -1,6 +1,6 @@
-//go:build !linux && haraltd
+//go:build !linux && libhbluetooth
 
-package haraltd
+package libhbluetooth
 
 import (
 	"context"
@@ -12,20 +12,15 @@ import (
 	"github.com/bluetuith-org/bluetooth-classic/api/appfeatures"
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	"github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
-	"github.com/bluetuith-org/bluetooth-classic/haraltd/internal/commands"
+	"github.com/bluetuith-org/bluetooth-classic/internal/libhbluetooth/internal/lib"
 )
 
 // Obex describes an Obex session.
 type obex struct {
-	s   *HaraltdSession
+	s   *BluetoothLibrary
 	key bluetooth.DeviceAddress
 
 	isEnabled bool
-}
-
-// obexObjectPush describes a file transfer session.
-type obexObjectPush struct {
-	*obex
 }
 
 // ObjectPush returns a function call interface to invoke device file transfer
@@ -34,21 +29,21 @@ func (o *obex) ObjectPush() bluetooth.ObexObjectPush {
 	return &obexObjectPush{o}
 }
 
+// obexObjectPush describes a file transfer session.
+type obexObjectPush struct {
+	*obex
+}
+
 // CreateSession creates a new Obex session with a device.
 // The context (ctx) can be provided in case this function call
 // needs to be cancelled, since this function call can take some time
 // to complete.
-func (o *obexObjectPush) CreateSession(ctx context.Context) error {
+func (o *obexObjectPush) CreateSession(_ context.Context) error {
 	if err := o.check(); err != nil {
 		return err
 	}
 
-	_, err := commands.CreateSession(o.key.Address).ExecuteWith(o.s.executor)
-	if ctx.Err() == context.Canceled {
-		o.RemoveSession()
-	}
-
-	return err
+	return lib.OppCreateSession(o.key)
 }
 
 // RemoveSession removes a created Obex session.
@@ -57,8 +52,7 @@ func (o *obexObjectPush) RemoveSession() error {
 		return err
 	}
 
-	_, err := commands.RemoveSession(o.key.Address).ExecuteWith(o.s.executor)
-	return err
+	return lib.OppRemoveSession(o.key)
 }
 
 // SendFile sends a file to the device. The 'filepath' must be a full path to the file.
@@ -67,9 +61,7 @@ func (o *obexObjectPush) SendFile(filepath string) (bluetooth.ObjectPushData, er
 		return bluetooth.ObjectPushData{}, err
 	}
 
-	filetransfer, err := commands.SendFile(o.key.Address, filepath).ExecuteWith(o.s.executor)
-
-	return filetransfer, err
+	return lib.OppQueueFileToSend(o.key, filepath)
 }
 
 // CancelTransfer cancels the transfer.
@@ -78,8 +70,7 @@ func (o *obexObjectPush) CancelTransfer() error {
 		return err
 	}
 
-	_, err := commands.CancelTransfer(o.key.Address).ExecuteWith(o.s.executor)
-	return err
+	return lib.OppCancelTransfer(o.key)
 }
 
 // SuspendTransfer suspends the transfer.
@@ -88,8 +79,7 @@ func (o *obexObjectPush) SuspendTransfer() error {
 		return err
 	}
 
-	_, err := commands.SuspendTransfer(o.key.Address).ExecuteWith(o.s.executor)
-	return err
+	return lib.OppSuspendTransfer(o.key)
 }
 
 // ResumeTransfer resumes the transfer.
@@ -98,8 +88,7 @@ func (o *obexObjectPush) ResumeTransfer() error {
 		return err
 	}
 
-	_, err := commands.ResumeTransfer(o.key.Address).ExecuteWith(o.s.executor)
-	return err
+	return lib.OppResumeTransfer(o.key)
 }
 
 func (o *obexObjectPush) check() error {

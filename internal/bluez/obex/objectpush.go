@@ -11,7 +11,7 @@ import (
 	"github.com/Southclaws/fault/ftag"
 	bluetooth "github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	errorkinds "github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
-	dbh "github.com/bluetuith-org/bluetooth-classic/bluez/internal/dbushelper"
+	dbh "github.com/bluetuith-org/bluetooth-classic/internal/bluez/internal/dbushelper"
 	"github.com/godbus/dbus/v5"
 )
 

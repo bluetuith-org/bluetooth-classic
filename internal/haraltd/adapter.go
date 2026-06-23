@@ -11,7 +11,7 @@ import (
 	"github.com/Southclaws/fault/ftag"
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	"github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
-	"github.com/bluetuith-org/bluetooth-classic/haraltd/internal/commands"
+	"github.com/bluetuith-org/bluetooth-classic/internal/haraltd/internal/commands"
 )
 
 // adapter describes a function call interface to invoke adapter related functions.

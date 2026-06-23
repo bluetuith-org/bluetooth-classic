@@ -8,7 +8,7 @@ import (
 	"time"
 
 	bluetooth "github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
-	dbh "github.com/bluetuith-org/bluetooth-classic/bluez/internal/dbushelper"
+	dbh "github.com/bluetuith-org/bluetooth-classic/internal/bluez/internal/dbushelper"
 	"github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
 )

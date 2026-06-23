@@ -11,7 +11,7 @@ import (
 	"github.com/Southclaws/fault/ftag"
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	"github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
-	"github.com/bluetuith-org/bluetooth-classic/libhbluetooth/internal/lib"
+	"github.com/bluetuith-org/bluetooth-classic/internal/libhbluetooth/internal/lib"
 )
 
 type adapter struct {
