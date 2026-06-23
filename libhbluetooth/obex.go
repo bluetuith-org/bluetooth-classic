@@ -19,6 +19,8 @@ import (
 type obex struct {
 	s   *BluetoothLibrary
 	key bluetooth.DeviceAddress
+
+	isEnabled bool
 }
 
 // ObjectPush returns a function call interface to invoke device file transfer
@@ -91,7 +93,7 @@ func (o *obexObjectPush) ResumeTransfer() error {
 
 func (o *obexObjectPush) check() error {
 	switch {
-	case o.s == nil || o.s.sessionClosed.Load():
+	case !o.isEnabled || o.s == nil || o.s.sessionClosed.Load():
 		return fault.Wrap(
 			errorkinds.ErrSessionNotExist,
 			fctx.With(

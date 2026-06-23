@@ -31,6 +31,9 @@ type BluetoothLibrary struct {
 	sessionClosed atomic.Bool
 	store         sstore.SessionStore
 
+	obexEnabled      bool
+	oppServerStarted bool
+
 	sync.Mutex
 }
 
@@ -81,10 +84,25 @@ func (b *BluetoothLibrary) Start(authHandler bluetooth.SessionAuthorizer, cfg co
 		ce.Append(ac.NewError(absentFeatures, errorkinds.ErrNotSupported))
 	}
 
+	b.obexEnabled = cfg.EnableObexServices
+
 	b.features = ac.NewFeatureSet(features, ce)
-	if b.features.Has(ac.FeatureSendFile, ac.FeatureReceiveFile) {
-		// TODO: Setup OPP server
-		_ = 0
+	if b.features.Has(ac.FeatureSendFile, ac.FeatureReceiveFile) && cfg.EnableObexServices {
+		adapters, err := b.store.Adapters()
+		if err != nil {
+			return nil, platform, fault.Wrap(
+				err,
+				fctx.With(context.Background(), "error_at", "init-obex-services"),
+				ftag.With(ftag.Internal),
+				fmsg.With("No adapter was found"),
+			)
+		}
+
+		b.oppServerStarted = true
+		if err := lib.OppStartServer(adapters[0].AdapterAddress); err != nil {
+			ce.Append(ac.NewError(ac.FeatureReceiveFile, err))
+			b.oppServerStarted = false
+		}
 	}
 
 	initialized = true
@@ -98,11 +116,19 @@ func (b *BluetoothLibrary) Stop() error {
 	b.Lock()
 	defer b.Unlock()
 
+	defer lib.Release()
+
 	b.features = nil
 	b.sessionClosed.Store(true)
 
-	// TODO:Stop OPP server if started
-	lib.Release()
+	if b.oppServerStarted {
+		adapters, err := b.store.Adapters()
+		if err == nil {
+			_ = lib.OppStopServer(adapters[0].AdapterAddress)
+		}
+
+		b.oppServerStarted = false
+	}
 
 	return nil
 }
@@ -124,7 +150,7 @@ func (b *BluetoothLibrary) Device(address bluetooth.DeviceAddress) bluetooth.Dev
 
 // Obex returns a function call interface to invoke obex related functions.
 func (b *BluetoothLibrary) Obex(address bluetooth.DeviceAddress) bluetooth.Obex {
-	return &obex{s: b, key: address}
+	return &obex{b, address, b.obexEnabled}
 }
 
 // Network returns a function call interface to invoke network related functions.

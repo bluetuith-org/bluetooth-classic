@@ -63,15 +63,18 @@ func (b *DbusSession) Start(
 			)
 	}
 
-	sessionBus, err := dbus.SessionBus()
-	if err != nil {
-		return nil, platform,
-			fault.Wrap(
-				err,
-				fctx.With(context.Background(), "error_at", "start-sessionbus"),
-				ftag.With(ftag.Internal),
-				fmsg.With("Cannot start session DBus"),
-			)
+	var sessionBus *dbus.Conn
+	if cfg.EnableObexServices {
+		sessionBus, err = dbus.SessionBus()
+		if err != nil {
+			return nil, platform,
+				fault.Wrap(
+					err,
+					fctx.With(context.Background(), "error_at", "start-sessionbus"),
+					ftag.With(ftag.Internal),
+					fmsg.With("Cannot start session DBus"),
+				)
+		}
 	}
 
 	*b = DbusSession{
@@ -132,13 +135,15 @@ func (b *DbusSession) Stop() error {
 	_ = b.obexman.Stop()
 	_ = b.agent.remove()
 
-	if err := b.sessionBus.Close(); err != nil {
-		return fault.Wrap(
-			err,
-			fctx.With(context.Background(), "error_at", "stop-sessionbus"),
-			ftag.With(ftag.Internal),
-			fmsg.With("Error while closing session bus"),
-		)
+	if b.sessionBus != nil {
+		if err := b.sessionBus.Close(); err != nil {
+			return fault.Wrap(
+				err,
+				fctx.With(context.Background(), "error_at", "stop-sessionbus"),
+				ftag.With(ftag.Internal),
+				fmsg.With("Error while closing session bus"),
+			)
+		}
 	}
 
 	if err := b.systemBus.Close(); err != nil {

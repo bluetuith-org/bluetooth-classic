@@ -59,6 +59,14 @@ type obexTransferProperties struct {
 func (o *ObexManager) Initialize(auth bluetooth.AuthorizeReceiveFile, authTimeout time.Duration) (ac.Features, *ac.Error) {
 	var capabilities ac.Features
 
+	if o.SessionBus == nil {
+		return capabilities,
+			ac.NewError(
+				ac.FeatureSendFile|ac.FeatureReceiveFile,
+				errors.New("DBus session bus was not enabled"),
+			)
+	}
+
 	serviceNames, err := dbh.ListActivatableBusNames(o.SessionBus)
 	if err != nil {
 		return capabilities,

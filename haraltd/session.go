@@ -48,6 +48,8 @@ type HaraltdSession struct {
 
 	store sstore.SessionStore
 
+	obexEnabled bool
+
 	sync.Mutex
 }
 
@@ -144,11 +146,12 @@ func (s *HaraltdSession) Start(authHandler bluetooth.SessionAuthorizer, cfg conf
 		ce.Append(ac.NewError(absentFeatures, errorkinds.ErrNotSupported))
 	}
 
-	s.features = ac.NewFeatureSet(features, ce)
+	s.obexEnabled = cfg.EnableObexServices
 
-	if s.features.Has(ac.FeatureSendFile, ac.FeatureReceiveFile) {
+	s.features = ac.NewFeatureSet(features, ce)
+	if s.features.Has(ac.FeatureSendFile, ac.FeatureReceiveFile) && cfg.EnableObexServices {
 		if _, err := commands.RegisterAgent(commands.ObexAgent).ExecuteWith(s.executor); err != nil {
-			ce.Append(ac.NewError(ac.FeatureSendFile, err))
+			ce.Append(ac.NewError(ac.FeatureReceiveFile, err))
 		}
 	}
 
@@ -183,7 +186,7 @@ func (s *HaraltdSession) Device(address bluetooth.DeviceAddress) bluetooth.Devic
 
 // Obex returns a function call interface to invoke obex related functions.
 func (s *HaraltdSession) Obex(address bluetooth.DeviceAddress) bluetooth.Obex {
-	return &obex{s, address}
+	return &obex{s, address, s.obexEnabled}
 }
 
 // Network returns a function call interface to invoke network related functions.

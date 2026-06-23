@@ -19,6 +19,11 @@ type Configuration struct {
 
 	// LibraryPath holds the custom user-defined path for the 'libhbluetooth' library.
 	LibraryPath string
+
+	// EnableObexServices holds a user-defined value that specifies whether to enable
+	// OBEX related features. This option exists so that these services aren't unneccesarily
+	// setup on every session creation.
+	EnableObexServices bool
 }
 
 // New returns a new configuration with the default authentication timeout.

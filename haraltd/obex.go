@@ -19,6 +19,8 @@ import (
 type obex struct {
 	s   *HaraltdSession
 	key bluetooth.DeviceAddress
+
+	isEnabled bool
 }
 
 // obexObjectPush describes a file transfer session.
@@ -102,7 +104,7 @@ func (o *obexObjectPush) ResumeTransfer() error {
 
 func (o *obexObjectPush) check() error {
 	switch {
-	case o.s == nil || o.s.sessionClosed.Load():
+	case !o.isEnabled || o.s == nil || o.s.sessionClosed.Load():
 		return fault.Wrap(
 			errorkinds.ErrSessionNotExist,
 			fctx.With(
