@@ -3,12 +3,12 @@
 package lib
 
 import (
+	"runtime"
 	"unsafe"
 
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	"github.com/bluetuith-org/bluetooth-classic/api/optional"
-	ffi "github.com/bluetuith-org/libffi-go"
-	"github.com/google/uuid"
+	"github.com/ebitengine/purego"
 )
 
 type adapterPropAttributes propAttributes
@@ -23,7 +23,7 @@ const (
 type adapterNative struct {
 	Address bdAddr
 
-	UUIDs     *uuid.UUID
+	UUIDs     *guid
 	UUIDCount uint32
 
 	Name       *byte
@@ -77,14 +77,14 @@ func GetAdapters() ([]bluetooth.AdapterData, error) {
 
 	argNativeArray := newNativeArray[adapterNative]()
 
-	_hbcGetAdapters.Call(libErr.getReturnPtr(), &argNativeArray, libErr.getHbErrorPtr())
-	if err := libErr.getError(); err != nil {
+	ret := _hbcGetAdapters.Call(argNativeArray, libErr.getHbErrorPtr())
+	if err := libErr.getError(ret); err != nil {
 		return nil, err
 	}
 	if argNativeArray.Count == 0 || argNativeArray.List == nil {
 		return nil, nil
 	}
-	defer argNativeArray.free(_hbcAdapterIteratorFree)
+	defer _hbcAdapterIteratorFree.Call(argNativeArray)
 
 	arrv := unsafe.Slice((**adapterNative)(unsafe.Pointer(argNativeArray.List)), argNativeArray.Count)
 	adapters := make([]bluetooth.AdapterData, 0, argNativeArray.Count)
@@ -102,14 +102,14 @@ func AdapterGetPairedDevices(address bluetooth.AdapterAddress) ([]bluetooth.Devi
 	argNativeArray := newNativeArray[deviceNative]()
 	argBdaddr := newBdAddr(address.Address)
 
-	_hbcAdapterGetDevices.Call(libErr.getReturnPtr(), &argBdaddr, &argNativeArray, libErr.getHbErrorPtr())
-	if err := libErr.getError(); err != nil {
+	ret := _hbcAdapterGetDevices.Call(argBdaddr, argNativeArray, libErr.getHbErrorPtr())
+	if err := libErr.getError(ret); err != nil {
 		return nil, err
 	}
 	if argNativeArray.Count == 0 || argNativeArray.List == nil {
 		return nil, nil
 	}
-	defer argNativeArray.free(_hbcDeviceIteratorFree)
+	defer _hbcDeviceIteratorFree.Call(argNativeArray)
 
 	arrv := unsafe.Slice((**deviceNative)(unsafe.Pointer(argNativeArray.List)), argNativeArray.Count)
 	devices := make([]bluetooth.DeviceData, 0, argNativeArray.Count)
@@ -127,13 +127,13 @@ func AdapterProperties(address bluetooth.AdapterAddress) (bluetooth.AdapterData,
 	argBdaddr := newBdAddr(address.Address)
 	argAdapter := newAdapterNative()
 
-	_hbcAdapterGetProperties.Call(libErr.getReturnPtr(), &argBdaddr, &argAdapter, libErr.getHbErrorPtr())
-	if err := libErr.getError(); err != nil {
+	ret := _hbcAdapterGetProperties.Call(argBdaddr, argAdapter, libErr.getHbErrorPtr())
+	if err := libErr.getError(ret); err != nil {
 		var adapter bluetooth.AdapterData
 
 		return adapter, err
 	}
-	defer adapterFree(&argAdapter)
+	defer _hbcAdapterFree.Call(argAdapter)
 
 	return argAdapter.toAdapterData(), nil
 }
@@ -146,9 +146,9 @@ func AdapterStartDiscovery(address bluetooth.AdapterAddress) error {
 	argBdAddr := newBdAddr(address.Address)
 	argTimeout := int32(0)
 
-	_hbcAdapterStartDiscovery.Call(libErr.getReturnPtr(), &argBdAddr, &argTimeout, libErr.getHbErrorPtr())
+	ret := _hbcAdapterStartDiscovery.Call(argBdAddr, argTimeout, libErr.getHbErrorPtr())
 
-	return libErr.getError()
+	return libErr.getError(ret)
 }
 
 // AdapterStopDiscovery stops the device discovery on the specified adapter.
@@ -156,106 +156,131 @@ func AdapterStopDiscovery(address bluetooth.AdapterAddress) error {
 	libErr := newLibError()
 
 	argBdAddr := newBdAddr(address.Address)
+	ret := _hbcAdapterStopDiscovery.Call(argBdAddr, libErr.getHbErrorPtr())
 
-	_hbcAdapterStopDiscovery.Call(libErr.getReturnPtr(), &argBdAddr, libErr.getHbErrorPtr())
-
-	return libErr.getError()
+	return libErr.getError(ret)
 }
 
 // SetAdapterPoweredState sets the powered state for the adapter.
 func SetAdapterPoweredState(address bluetooth.AdapterAddress, state bool) error {
-	return adapterSetState(address, state, &_hbcSetPoweredState)
+	libErr := newLibError()
+
+	argBdAddr := newBdAddr(address.Address)
+	ret := _hbcSetPoweredState.Call(argBdAddr, state, libErr.getHbErrorPtr())
+
+	return libErr.getError(ret)
 }
 
 // SetAdapterDiscoverableState sets the discoverable state for the adapter.
 func SetAdapterDiscoverableState(address bluetooth.AdapterAddress, state bool) error {
-	return adapterSetState(address, state, &_hbcSetDiscoverableState)
+	libErr := newLibError()
+
+	argBdAddr := newBdAddr(address.Address)
+	ret := _hbcSetDiscoverableState.Call(argBdAddr, state, libErr.getHbErrorPtr())
+
+	return libErr.getError(ret)
 }
 
 // SetAdapterPairableState sets the pairable state for the adapter.
 func SetAdapterPairableState(address bluetooth.AdapterAddress, state bool) error {
-	return adapterSetState(address, state, &_hbcSetPairableState)
-}
-
-func adapterSetState(address bluetooth.AdapterAddress, state bool, fun *ffi.Fun) error {
 	libErr := newLibError()
 
 	argBdAddr := newBdAddr(address.Address)
+	ret := _hbcSetPairableState.Call(argBdAddr, state, libErr.getHbErrorPtr())
 
-	fun.Call(libErr.getReturnPtr(), &argBdAddr, &state, libErr.getHbErrorPtr())
-	return libErr.getError()
-}
-
-func adapterFree(an **adapterNative) {
-	_hbcAdapterFree.Call(nil, an)
+	return libErr.getError(ret)
 }
 
 var (
-	_hbcAdapterGetProperties ffi.Fun
-	_hbcAdapterFree          ffi.Fun
+	_hbcAdapterGetProperties interopFunc[func(*bdAddr, *adapterNative, **hbError) hbStatus]
+	_hbcAdapterFree          interopFunc[func(*adapterNative)]
 
-	_hbcAdapterGetDevices ffi.Fun
+	_hbcAdapterGetDevices interopFunc[func(*bdAddr, *nativeArray[deviceNative], **hbError) hbStatus]
 
-	_hbcGetAdapters         ffi.Fun
-	_hbcAdapterIteratorFree ffi.Fun
+	_hbcGetAdapters         interopFunc[func(*nativeArray[adapterNative], **hbError) hbStatus]
+	_hbcAdapterIteratorFree interopFunc[func(*nativeArray[adapterNative])]
 
-	_hbcAdapterStartDiscovery ffi.Fun
-	_hbcAdapterStopDiscovery  ffi.Fun
+	_hbcAdapterStartDiscovery interopFunc[func(*bdAddr, int32, **hbError) hbStatus]
+	_hbcAdapterStopDiscovery  interopFunc[func(*bdAddr, **hbError) hbStatus]
 
-	_hbcSetPoweredState, _hbcSetDiscoverableState, _hbcSetPairableState ffi.Fun
+	_hbcSetPoweredState, _hbcSetDiscoverableState, _hbcSetPairableState interopFunc[func(*bdAddr, bool, **hbError) hbStatus]
 )
 
 func getAdapterFunHandles() []funHandle {
 	return []funHandle{
-		{
-			&_hbcAdapterGetProperties, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_get_adapter", &fnRetType, &ffi.TypePointer, &ffi.TypePointer, &fnErrType)
-			},
-		},
-		{
-			&_hbcAdapterFree, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_adapter_free", &ffi.TypeVoid, &ffi.TypePointer)
-			},
-		},
-		{
-			&_hbcGetAdapters, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_get_adapters", &fnRetType, &ffi.TypePointer, &fnErrType)
-			},
-		},
-		{
-			&_hbcAdapterIteratorFree, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_adapter_iterator_free", &ffi.TypeVoid, &ffi.TypePointer)
-			},
-		},
-		{
-			&_hbcAdapterGetDevices, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_adapter_get_paired_devices", &fnRetType, &ffi.TypePointer, &ffi.TypePointer, &fnErrType)
-			},
-		},
-		{
-			&_hbcAdapterStartDiscovery, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_adapter_start_discovery", &fnRetType, &ffi.TypePointer, &ffi.TypeSint32, &fnErrType)
-			},
-		},
-		{
-			&_hbcAdapterStopDiscovery, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_adapter_stop_discovery", &fnRetType, &ffi.TypePointer, &fnErrType)
-			},
-		},
-		{
-			&_hbcSetPoweredState, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_adapter_set_powered_state", &fnRetType, &ffi.TypePointer, &ffi.TypeUint32, &fnErrType)
-			},
-		},
-		{
-			&_hbcSetDiscoverableState, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_adapter_set_discoverable_state", &fnRetType, &ffi.TypePointer, &ffi.TypeUint32, &fnErrType)
-			},
-		},
-		{
-			&_hbcSetPairableState, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_adapter_set_pairable_state", &fnRetType, &ffi.TypePointer, &ffi.TypeUint32, &fnErrType)
-			},
-		},
+		newInteropFunc("hbc_get_adapter", &_hbcAdapterGetProperties, func(addr *bdAddr, data *adapterNative, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcAdapterGetProperties.funAddr(), uintptr(unsafe.Pointer(addr)), uintptr(unsafe.Pointer(data)), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(addr)
+			runtime.KeepAlive(data)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hbc_adapter_free", &_hbcAdapterFree, func(data *adapterNative) {
+			_, _, _ = purego.SyscallN(_hbcAdapterFree.funAddr(), uintptr(unsafe.Pointer(data)))
+			runtime.KeepAlive(data)
+		}),
+		newInteropFunc("hbc_get_adapters", &_hbcGetAdapters, func(iterator *nativeArray[adapterNative], hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcGetAdapters.funAddr(), uintptr(unsafe.Pointer(iterator)), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(iterator)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hbc_adapter_iterator_free", &_hbcAdapterIteratorFree, func(iterator *nativeArray[adapterNative]) {
+			_, _, _ = purego.SyscallN(_hbcAdapterIteratorFree.funAddr(), uintptr(unsafe.Pointer(iterator)))
+			runtime.KeepAlive(iterator)
+		}),
+		newInteropFunc("hbc_adapter_get_paired_devices", &_hbcAdapterGetDevices, func(addr *bdAddr, iterator *nativeArray[deviceNative], hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcAdapterGetDevices.funAddr(), uintptr(unsafe.Pointer(addr)), uintptr(unsafe.Pointer(iterator)), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(addr)
+			runtime.KeepAlive(iterator)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hbc_adapter_start_discovery", &_hbcAdapterStartDiscovery, func(addr *bdAddr, timeout int32, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcAdapterStartDiscovery.funAddr(), uintptr(unsafe.Pointer(addr)), uintptr(timeout), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(addr)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hbc_adapter_stop_discovery", &_hbcAdapterStopDiscovery, func(addr *bdAddr, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcAdapterStopDiscovery.funAddr(), uintptr(unsafe.Pointer(addr)), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(addr)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hbc_adapter_set_powered_state", &_hbcSetPoweredState, func(addr *bdAddr, state bool, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcSetPoweredState.funAddr(), uintptr(unsafe.Pointer(addr)), boolToUintptr(state), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(addr)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hbc_adapter_set_discoverable_state", &_hbcSetDiscoverableState, func(addr *bdAddr, state bool, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcSetDiscoverableState.funAddr(), uintptr(unsafe.Pointer(addr)), boolToUintptr(state), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(addr)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hbc_adapter_set_pairable_state", &_hbcSetPairableState, func(addr *bdAddr, state bool, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcSetPairableState.funAddr(), uintptr(unsafe.Pointer(addr)), boolToUintptr(state), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(addr)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
 	}
+}
+
+func boolToUintptr(v bool) uintptr {
+	if v {
+		return 1
+	}
+
+	return 0
 }

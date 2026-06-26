@@ -3,6 +3,7 @@
 package lib
 
 import (
+	"errors"
 	"runtime"
 	"sync"
 	"unsafe"
@@ -10,37 +11,40 @@ import (
 	"github.com/bluetuith-org/bluetooth-classic/api/appfeatures"
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	bcfg "github.com/bluetuith-org/bluetooth-classic/api/config"
-	ffi "github.com/bluetuith-org/libffi-go"
+	"github.com/bluetuith-org/bluetooth-classic/api/helpers/sessionstore"
+	"github.com/ebitengine/purego"
 )
 
-type funHandle struct {
-	fun        *ffi.Fun
-	handleFunc func(handle ffi.Lib, fun *ffi.Fun, err *error)
+type propAttributes uint32
+
+type guid struct {
+	i  uint32
+	s1 uint16
+	s2 uint16
+
+	data [8]byte
 }
 
 var _libHandle = newLibHandle()
 
 type libHandle struct {
-	h      ffi.Lib
+	h      uintptr
 	inited bool
-
-	eventCb map[*eventCallbacks]struct{}
 
 	exitCh        chan int32
 	waitForExitCh chan struct{}
 
 	authorizer bluetooth.SessionAuthorizer
+	store      *sessionstore.SessionStore
 
 	mu sync.Mutex
 }
 
 func newLibHandle() *libHandle {
-	return &libHandle{
-		eventCb: make(map[*eventCallbacks]struct{}),
-	}
+	return &libHandle{}
 }
 
-func (l *libHandle) initLibrary(authorizer bluetooth.SessionAuthorizer, cfg bcfg.Configuration) error {
+func (l *libHandle) initLibrary(store *sessionstore.SessionStore, authorizer bluetooth.SessionAuthorizer, cfg bcfg.Configuration) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -59,11 +63,11 @@ func (l *libHandle) initLibrary(authorizer bluetooth.SessionAuthorizer, cfg bcfg
 			libName += ".dylib"
 
 		default:
-			panic("Unsupported OS")
+			return errors.New("unsupported OS")
 		}
 	}
 
-	handle, err := ffi.LoadWithSymbols(libName)
+	handle, err := OpenLibrary(libName)
 	if err != nil {
 		return err
 	}
@@ -75,6 +79,7 @@ func (l *libHandle) initLibrary(authorizer bluetooth.SessionAuthorizer, cfg bcfg
 	l.waitForExitCh = make(chan struct{}, 1)
 
 	l.authorizer = authorizer
+	l.store = store
 
 	for _, funInits := range [][]funHandle{
 		getLibraryFunHandles(),
@@ -85,11 +90,14 @@ func (l *libHandle) initLibrary(authorizer bluetooth.SessionAuthorizer, cfg bcfg
 	} {
 		for _, initer := range funInits {
 			var err error
+			var fn uintptr
 
-			initer.handleFunc(handle, initer.fun, &err)
+			fn, err = OpenSymbol(l.h, initer.funcName())
 			if err != nil {
 				return err
 			}
+
+			initer.setFunAddr(fn)
 		}
 	}
 
@@ -104,23 +112,14 @@ func (l *libHandle) addEventHandlers() error {
 		return err
 	}
 
-	nativeCbArg := eventCb.toNativeCallbacks()
+	nativeCbArg := eventCb
 
-	_hbSetEventCallbacks.Call(libErr.getReturnPtr(), &nativeCbArg, libErr.getHbErrorPtr())
-	if err := libErr.getError(); err != nil {
-		return err
-	}
+	ret := _hbSetEventCallbacks.Call(nativeCbArg, libErr.getHbErrorPtr())
 
-	l.eventCb[eventCb] = struct{}{}
-
-	return nil
+	return libErr.getError(ret)
 }
 
 func (l *libHandle) removeEventHandlers() error {
-	// TODO: Free event callbacks
-
-	l.eventCb = nil
-
 	return nil
 }
 
@@ -134,7 +133,7 @@ func (l *libHandle) closeLibrary(fn func()) error {
 
 	fn()
 
-	if err := l.h.Close(); err != nil {
+	if err := CloseLibrary(l.h); err != nil {
 		return err
 	}
 
@@ -144,13 +143,7 @@ func (l *libHandle) closeLibrary(fn func()) error {
 }
 
 // Initialize loads and initializes the library
-//
-//revive:disable
-func Initialize(authorizer bluetooth.SessionAuthorizer, cfg bcfg.Configuration) error {
-	if err := _libHandle.initLibrary(authorizer, cfg); err != nil {
-		return err
-	}
-
+func Initialize(store *sessionstore.SessionStore, authorizer bluetooth.SessionAuthorizer, cfg bcfg.Configuration) error {
 	initChan := make(chan error, 2)
 
 	setLaunched := func(err error) {
@@ -160,34 +153,31 @@ func Initialize(authorizer bluetooth.SessionAuthorizer, cfg bcfg.Configuration) 
 		_libHandle.waitForExitCh <- struct{}{}
 	}
 
-	cb, err := newCallback(func(_ *ffi.Cif, ret unsafe.Pointer, _ *unsafe.Pointer, _ unsafe.Pointer) uintptr {
-		setLaunched(nil)
-		*(*int32)(ret) = <-_libHandle.exitCh
-
-		return 0
-	}, ffi.DefaultAbi, 0, &ffi.TypeSint32)
-	if err != nil {
-		return err
-	}
-
 	go func() {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 
-		defer cb.free()
+		if err := _libHandle.initLibrary(store, authorizer, cfg); err != nil {
+			initChan <- err
+			return
+		}
+
+		cb := purego.NewCallback(func() uintptr {
+			setLaunched(nil)
+
+			return uintptr(<-_libHandle.exitCh)
+		})
 
 		libErr := newLibError()
 
-		_hbRunMain.Call(libErr.getReturnPtr(), cb.getCallBackPtr(), libErr.getHbErrorPtr())
+		ret := _hbRunMain.Call(cb, libErr.getHbErrorPtr())
 
-		setLaunched(libErr.getError())
+		setLaunched(libErr.getError(ret))
 		setExitWaited()
 	}()
 
 	return <-initChan
 }
-
-//revive:enable
 
 // Release releases the library handle that was acquired via [Initialize].
 func Release() {
@@ -199,41 +189,42 @@ func Release() {
 
 // GetFeatures gets the supported features of the library.
 func GetFeatures() appfeatures.Features {
-	var f appfeatures.Features
-
-	_hbGetFeatures.Call(&f)
-
-	return f
+	return appfeatures.Features(_hbGetFeatures.Call())
 }
 
 var (
-	_hbRunMain           ffi.Fun
-	_hbSetEventCallbacks ffi.Fun
-	_hbSetAuthResponse   ffi.Fun
-	_hbGetFeatures       ffi.Fun
+	_hbRunMain           interopFunc[func(uintptr, **hbError) hbStatus]
+	_hbGetFeatures       interopFunc[func() uint32]
+	_hbSetEventCallbacks interopFunc[func(*eventCallbacks, **hbError) hbStatus]
+	_hbSetAuthResponse   interopFunc[func(uint32, unsafe.Pointer, **hbError) hbStatus]
 )
 
 func getLibraryFunHandles() []funHandle {
 	return []funHandle{
-		{
-			&_hbGetFeatures, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hb_get_features", &ffi.TypeUint32)
-			},
-		},
-		{
-			&_hbSetEventCallbacks, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hb_set_events_cb", &fnRetType, &ffi.TypePointer, &fnErrType)
-			},
-		},
-		{
-			&_hbRunMain, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hb_run_main", &ffi.TypeSint32, &ffi.TypePointer, &fnErrType)
-			},
-		},
-		{
-			&_hbSetAuthResponse, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hb_set_auth_response", &fnRetType, &ffi.TypeUint32, &ffi.TypePointer, &fnErrType)
-			},
-		},
+		newInteropFunc("hb_run_main", &_hbRunMain, func(mainFunc uintptr, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbRunMain.funAddr(), mainFunc, uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hb_get_features", &_hbGetFeatures, func() uint32 {
+			_r0, _, _ := purego.SyscallN(_hbGetFeatures.funAddr())
+			ret := uint32(_r0)
+			return ret
+		}),
+		newInteropFunc("hb_set_events_cb", &_hbSetEventCallbacks, func(cb *eventCallbacks, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbSetEventCallbacks.funAddr(), uintptr(unsafe.Pointer(cb)), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(cb)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hb_set_auth_response", &_hbSetAuthResponse, func(authID uint32, response unsafe.Pointer, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbSetAuthResponse.funAddr(), uintptr(authID), uintptr(response), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(response)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
 	}
 }

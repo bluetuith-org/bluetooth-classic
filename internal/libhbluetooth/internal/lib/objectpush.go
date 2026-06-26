@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"mime"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"unsafe"
 
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	"github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
-	ffi "github.com/bluetuith-org/libffi-go"
+	"github.com/ebitengine/purego"
 )
 
 type oppTransferStatus uint32
@@ -102,12 +104,22 @@ func (o *oppTransferData) toObjectPushData() bluetooth.ObjectPushData {
 
 // OppCreateSession opens an Object Push transfer session with the target device.
 func OppCreateSession(deviceAddress bluetooth.DeviceAddress) error {
-	return oppCallDeviceFunc(deviceAddress, _hbcOppStartSession)
+	libErr := newLibError()
+
+	argDeviceID := newDeviceID(deviceAddress)
+	ret := _hbcOppStartSession.Call(argDeviceID, libErr.getHbErrorPtr())
+
+	return libErr.getError(ret)
 }
 
 // OppRemoveSession closes an Object Push transfer session with the target device.
 func OppRemoveSession(deviceAddress bluetooth.DeviceAddress) error {
-	return oppCallDeviceFunc(deviceAddress, _hbcOppStopSession)
+	libErr := newLibError()
+
+	argDeviceID := newDeviceID(deviceAddress)
+	ret := _hbcOppStopSession.Call(argDeviceID, libErr.getHbErrorPtr())
+
+	return libErr.getError(ret)
 }
 
 // OppQueueFileToSend queues a file to send to the target device. Ensure [lib.OppCreateSession] is called before using this function.
@@ -118,8 +130,8 @@ func OppQueueFileToSend(deviceAddress bluetooth.DeviceAddress, file string) (blu
 	argFilePath := stringToBytePtr(file)
 	argOppData := &oppTransferData{}
 
-	_hbcOppQueueFile.Call(libErr.getReturnPtr(), &argDeviceID, &argFilePath, &argOppData, libErr.getHbErrorPtr())
-	if err := libErr.getError(); err != nil {
+	ret := _hbcOppQueueFile.Call(argDeviceID, argFilePath, argOppData, libErr.getHbErrorPtr())
+	if err := libErr.getError(ret); err != nil {
 		return bluetooth.ObjectPushData{}, err
 	}
 
@@ -128,7 +140,12 @@ func OppQueueFileToSend(deviceAddress bluetooth.DeviceAddress, file string) (blu
 
 // OppCancelTransfer cancels a transfer.
 func OppCancelTransfer(deviceAddress bluetooth.DeviceAddress) error {
-	return oppCallDeviceFunc(deviceAddress, _hbcOppCancelTransfer)
+	libErr := newLibError()
+
+	argDeviceID := newDeviceID(deviceAddress)
+	ret := _hbcOppCancelTransfer.Call(argDeviceID, libErr.getHbErrorPtr())
+
+	return libErr.getError(ret)
 }
 
 // OppSuspendTransfer suspends a transfer.
@@ -143,32 +160,22 @@ func OppResumeTransfer(_ bluetooth.DeviceAddress) error {
 
 // OppStartServer starts the Object Push server, to receive Object Push transfers.
 func OppStartServer(adapterAddress bluetooth.AdapterAddress) error {
-	return oppCallAdapterFunc(adapterAddress, _hbcOppStartServer)
+	libErr := newLibError()
+
+	argAdapterAddress := newBdAddr(adapterAddress.Address)
+	ret := _hbcOppStartServer.Call(argAdapterAddress, libErr.getHbErrorPtr())
+
+	return libErr.getError(ret)
 }
 
 // OppStopServer stops the Object Push server.
 func OppStopServer(adapterAddress bluetooth.AdapterAddress) error {
-	return oppCallAdapterFunc(adapterAddress, _hbcOppStopServer)
-}
-
-func oppCallDeviceFunc(deviceAddress bluetooth.DeviceAddress, fn ffi.Fun) error {
-	libErr := newLibError()
-
-	argDeviceID := newDeviceID(deviceAddress)
-
-	fn.Call(libErr.getReturnPtr(), &argDeviceID, libErr.getHbErrorPtr())
-
-	return libErr.getError()
-}
-
-func oppCallAdapterFunc(adapterAddress bluetooth.AdapterAddress, fn ffi.Fun) error {
 	libErr := newLibError()
 
 	argAdapterAddress := newBdAddr(adapterAddress.Address)
+	ret := _hbcOppStopServer.Call(argAdapterAddress, libErr.getHbErrorPtr())
 
-	fn.Call(libErr.getReturnPtr(), &argAdapterAddress, libErr.getHbErrorPtr())
-
-	return libErr.getError()
+	return libErr.getError(ret)
 }
 
 func handleOppEvent(action bluetooth.EventAction, data *oppTransferData) {
@@ -187,45 +194,59 @@ func handleOppEvent(action bluetooth.EventAction, data *oppTransferData) {
 }
 
 var (
-	_hbcOppStartSession, _hbcOppStopSession ffi.Fun
+	_hbcOppStartSession, _hbcOppStopSession interopFunc[func(*deviceIDNative, **hbError) hbStatus]
 
-	_hbcOppQueueFile      ffi.Fun
-	_hbcOppCancelTransfer ffi.Fun
+	_hbcOppQueueFile      interopFunc[func(*deviceIDNative, *byte, *oppTransferData, **hbError) hbStatus]
+	_hbcOppCancelTransfer interopFunc[func(*deviceIDNative, **hbError) hbStatus]
 
-	_hbcOppStartServer, _hbcOppStopServer ffi.Fun
+	_hbcOppStartServer, _hbcOppStopServer interopFunc[func(*bdAddr, **hbError) hbStatus]
 )
 
 func getOppFunHandles() []funHandle {
 	return []funHandle{
-		{
-			&_hbcOppStartSession, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_opp_start_session", &fnRetType, &ffi.TypePointer, &fnErrType)
-			},
-		},
-		{
-			&_hbcOppStopSession, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_opp_stop_session", &fnRetType, &ffi.TypePointer, &fnErrType)
-			},
-		},
-		{
-			&_hbcOppQueueFile, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_opp_queue_file_path", &fnRetType, &ffi.TypePointer, &ffi.TypePointer, &ffi.TypePointer, &fnErrType)
-			},
-		},
-		{
-			&_hbcOppCancelTransfer, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_opp_cancel_transfer", &fnRetType, &ffi.TypePointer, &fnErrType)
-			},
-		},
-		{
-			&_hbcOppStartServer, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_opp_start_server", &fnRetType, &ffi.TypePointer, &fnErrType)
-			},
-		},
-		{
-			&_hbcOppStopServer, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_opp_stop_server", &fnRetType, &ffi.TypePointer, &fnErrType)
-			},
-		},
+		newInteropFunc("hbc_opp_start_session", &_hbcOppStartSession, func(id *deviceIDNative, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcOppStartSession.funAddr(), uintptr(unsafe.Pointer(id)), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(id)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hbc_opp_stop_session", &_hbcOppStopSession, func(id *deviceIDNative, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcOppStopSession.funAddr(), uintptr(unsafe.Pointer(id)), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(id)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hbc_opp_queue_file_path", &_hbcOppQueueFile, func(id *deviceIDNative, path *byte, data *oppTransferData, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcOppQueueFile.funAddr(), uintptr(unsafe.Pointer(id)), uintptr(unsafe.Pointer(path)), uintptr(unsafe.Pointer(data)), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(id)
+			runtime.KeepAlive(path)
+			runtime.KeepAlive(data)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hbc_opp_cancel_transfer", &_hbcOppCancelTransfer, func(addr *deviceIDNative, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcOppCancelTransfer.funAddr(), uintptr(unsafe.Pointer(addr)), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(addr)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hbc_opp_start_server", &_hbcOppStartServer, func(addr *bdAddr, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcOppStartServer.funAddr(), uintptr(unsafe.Pointer(addr)), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(addr)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hbc_opp_stop_server", &_hbcOppStopServer, func(addr *bdAddr, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcOppStopServer.funAddr(), uintptr(unsafe.Pointer(addr)), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(addr)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
 	}
 }

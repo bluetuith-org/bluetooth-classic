@@ -1,6 +1,7 @@
 package bluetooth
 
 import (
+	"github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
 	"github.com/bluetuith-org/bluetooth-classic/api/optional"
 	"github.com/google/uuid"
 )
@@ -58,6 +59,17 @@ type AdapterData struct {
 	AdapterEventData
 }
 
+// Merge merges the data from other to the original.
+func (a *AdapterData) Merge(other *AdapterData) error {
+	if err := a.AdapterEventData.Merge(&other.AdapterEventData); err != nil {
+		return err
+	}
+
+	a.UniqueName = other.UniqueName
+
+	return nil
+}
+
 // AdapterEventData holds the dynamic (variable) bluetooth adapter information.
 // This is primarily used to send adapter event related data.
 type AdapterEventData struct {
@@ -87,4 +99,33 @@ type AdapterEventData struct {
 
 	// UUIDs holds all the supported profile uuids.
 	UUIDs uuid.UUIDs `json:"uuids,omitempty" codec:"UUIDs,omitempty" doc:"All the supported Bluetooth service profile UUIDs."`
+}
+
+// Merge merges the event data from other to the original.
+func (a *AdapterEventData) Merge(other *AdapterEventData) error {
+	if other.IsNil() {
+		return errorkinds.ErrInvalidAddress
+	}
+
+	a.AdapterAddress = other.AdapterAddress
+	if other.UUIDs != nil {
+		a.UUIDs = other.UUIDs
+	}
+
+	setopt(&a.Name, &other.Name)
+	setopt(&a.Alias, &other.Alias)
+	setopt(&a.Discoverable, &other.Discoverable)
+	setopt(&a.Pairable, &other.Pairable)
+	setopt(&a.Powered, &other.Powered)
+	setopt(&a.Discovering, &other.Discovering)
+
+	return nil
+}
+
+func setopt[T optional.OptAllowed](orig, oth *optional.Optional[T]) {
+	if oth.IsZero() {
+		return
+	}
+
+	orig.Set(oth.Value())
 }

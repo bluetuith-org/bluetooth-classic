@@ -5,9 +5,19 @@ package lib
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
+	"unsafe"
 
-	ffi "github.com/bluetuith-org/libffi-go"
+	"github.com/ebitengine/purego"
+)
+
+type hbStatus int32
+
+const (
+	statusOk             hbStatus = 0
+	statusErr            hbStatus = -1
+	statusErrNotReleased hbStatus = -2
 )
 
 type hbError struct {
@@ -18,7 +28,6 @@ type hbError struct {
 }
 
 type libError struct {
-	ret   int32
 	hberr *hbError
 }
 
@@ -26,18 +35,14 @@ func newLibError() *libError {
 	return &libError{}
 }
 
-func (l *libError) getReturnPtr() *int32 {
-	return &l.ret
-}
-
-func (l *libError) getHbErrorPtr() ***hbError {
+func (l *libError) getHbErrorPtr() **hbError {
 	h := &l.hberr
 
-	return &h
+	return h
 }
 
-func (l *libError) getError() error {
-	if l.ret == 0 && l.hberr == nil {
+func (l *libError) getError(ret hbStatus) error {
+	if ret == statusOk && l.hberr == nil {
 		return nil
 	}
 
@@ -45,12 +50,11 @@ func (l *libError) getError() error {
 	if h != nil {
 		var sb strings.Builder
 
-		defer _hbErrorFree.Call(nil, &h)
+		defer _hbErrorFree.Call(h)
 
 		desc := bytePtrToString(l.hberr.Description)
 		info := bytePtrToString(l.hberr.AdditionalInformation)
 
-		sb.WriteString("error: ")
 		if desc != "" {
 			sb.WriteString(desc)
 			sb.WriteString(" ")
@@ -65,17 +69,16 @@ func (l *libError) getError() error {
 		return errors.New(sb.String())
 	}
 
-	return fmt.Errorf("generic error: Return code was %d", l.ret)
+	return fmt.Errorf("generic error: Return code was %d", ret)
 }
 
-var _hbErrorFree ffi.Fun
+var _hbErrorFree interopFunc[func(*hbError)]
 
 func getErrorFunHandles() []funHandle {
 	return []funHandle{
-		{
-			&_hbErrorFree, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hb_error_free", &ffi.TypeVoid, &ffi.TypePointer)
-			},
-		},
+		newInteropFunc("hb_error_free", &_hbErrorFree, func(hberr *hbError) {
+			_, _, _ = purego.SyscallN(_hbErrorFree.funAddr(), uintptr(unsafe.Pointer(hberr)))
+			runtime.KeepAlive(hberr)
+		}),
 	}
 }

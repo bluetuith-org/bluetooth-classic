@@ -1,6 +1,7 @@
 package bluetooth
 
 import (
+	"github.com/bluetuith-org/bluetooth-classic/api/errorkinds"
 	"github.com/bluetuith-org/bluetooth-classic/api/optional"
 	"github.com/google/uuid"
 )
@@ -100,6 +101,19 @@ func (d *DeviceData) HaveService(service uint32) bool {
 	return ServiceExists(d.UUIDs, service)
 }
 
+// Merge merges the data from other to the original.
+func (d *DeviceData) Merge(other *DeviceData) error {
+	if err := d.DeviceEventData.Merge(&other.DeviceEventData); err != nil {
+		return err
+	}
+
+	d.Class = other.Class
+	d.Type = other.Type
+	d.LegacyPairing = other.LegacyPairing
+
+	return nil
+}
+
 // DeviceEventData holds the dynamic (variable) bluetooth device information.
 // This is primarily used to send device event related data.
 type DeviceEventData struct {
@@ -140,6 +154,30 @@ type DeviceEventData struct {
 
 	// UUIDs holds the device-supported Bluetooth profile UUIDs.
 	UUIDs uuid.UUIDs `json:"uuids,omitempty" codec:"UUIDs,omitempty" doc:"The device-supported Bluetooth profile UUIDs."`
+}
+
+// Merge merges the event data from other to the original.
+func (d *DeviceEventData) Merge(other *DeviceEventData) error {
+	if other.IsNil() {
+		return errorkinds.ErrInvalidAddress
+	}
+
+	d.DeviceAddress = other.DeviceAddress
+	if other.UUIDs != nil {
+		d.UUIDs = other.UUIDs
+	}
+
+	setopt(&d.Name, &other.Name)
+	setopt(&d.Alias, &other.Alias)
+	setopt(&d.Paired, &other.Paired)
+	setopt(&d.Connected, &other.Connected)
+	setopt(&d.Blocked, &other.Blocked)
+	setopt(&d.Bonded, &other.Bonded)
+	setopt(&d.RSSI, &other.RSSI)
+	setopt(&d.Percentage, &other.Percentage)
+	setopt(&d.Trusted, &other.Trusted)
+
+	return nil
 }
 
 // DeviceTypeFromClass parses the device class and returns its type.

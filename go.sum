@@ -2,8 +2,6 @@ github.com/Southclaws/fault v0.8.2 h1:hbQANoRWYVWnQjpwJlNlfaolM+oIihgoFowaY3EBLC
 github.com/Southclaws/fault v0.8.2/go.mod h1:VUVkAWutC59SL16s6FTqf3I6I2z77RmnaW5XRz4bLOE=
 github.com/Wifx/gonetworkmanager v0.5.0 h1:P209z0yj705bl5tmyHTlpXPSv3QzjPtIM4X0SyDAqWA=
 github.com/Wifx/gonetworkmanager v0.5.0/go.mod h1:EdhHf2O00IZXfMv9LC6CS6SgTwcMTg/ZSDhGvch0cs8=
-github.com/bluetuith-org/libffi-go v0.7.2 h1:se/4nT9dh41fD0hRA9j6jUtzRD/aLXEJTd2Esn24Fk0=
-github.com/bluetuith-org/libffi-go v0.7.2/go.mod h1:Brtwqf/Z15BUa6ZEgg+hfmmqM+dR0OR+nOIq81Dtdt8=
 github.com/cskr/pubsub/v2 v2.0.2 h1:395hhPXEsyI1b+5nfj+s5Q3gdxpg0jsWd3t/QAdmU1Y=
 github.com/cskr/pubsub/v2 v2.0.2/go.mod h1:XYuiN8dhcXTCzQDa5SH4+B3zLso94FTwAk0maAEGJJw=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=

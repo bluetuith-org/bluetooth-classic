@@ -5,6 +5,7 @@ package lib
 import (
 	"context"
 	"errors"
+	"runtime"
 	"time"
 	"unsafe"
 
@@ -34,12 +35,6 @@ const (
 )
 
 type authReplyMethod uint32
-
-const (
-	peplyMethodNone authReplyMethod = iota
-	replyMethodConfirm
-	replyMethodWithInput
-)
 
 var authMap = xsync.NewMapOf[uint32, *bluetooth.AuthTimeout]()
 
@@ -183,10 +178,11 @@ func raiseAuthRequest(authID uint32, fn func(ctx bluetooth.AuthTimeout)) {
 	}()
 }
 
-func respondToAuthRequest(authID uint32, response any) error {
+func respondToAuthRequest[T any, I authResponse[T]](authID uint32, response *I) error {
 	libErr := newLibError()
 
-	_hbSetAuthResponse.Call(libErr.getReturnPtr(), &authID, response, libErr.getHbErrorPtr())
+	ret := _hbSetAuthResponse.Call(authID, unsafe.Pointer(response), libErr.getHbErrorPtr())
+	runtime.KeepAlive(response)
 
-	return libErr.getError()
+	return libErr.getError(ret)
 }

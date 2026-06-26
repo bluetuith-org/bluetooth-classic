@@ -3,10 +3,12 @@
 package lib
 
 import (
+	"runtime"
+	"unsafe"
+
 	"github.com/bluetuith-org/bluetooth-classic/api/bluetooth"
 	"github.com/bluetuith-org/bluetooth-classic/api/optional"
-	ffi "github.com/bluetuith-org/libffi-go"
-	"github.com/google/uuid"
+	"github.com/ebitengine/purego"
 )
 
 type devicePropAttributes propAttributes
@@ -36,7 +38,7 @@ func (d *deviceIDNative) ToDeviceAddress() bluetooth.DeviceAddress {
 type deviceNative struct {
 	id deviceIDNative
 
-	UUIDs     *uuid.UUID
+	UUIDs     *guid
 	UUIDCount uint32
 
 	Name  *byte
@@ -80,6 +82,8 @@ func (d *deviceNative) ToDeviceData() bluetooth.DeviceData {
 		device.Alias = optional.New(alias)
 	}
 
+	device.Type = bluetooth.DeviceTypeFromClass(d.Class)
+
 	checkAndSetAttrs(propIsConnectede, d.Attributes, optSetFunc(&device.Connected, d.IsConnected))
 	checkAndSetAttrs(propIsPaired, d.Attributes, optSetFunc(&device.Paired, d.IsPaired))
 	checkAndSetAttrs(propHasRSSI, d.Attributes, optSetFunc(&device.RSSI, d.HasRSSI))
@@ -95,111 +99,128 @@ func DeviceProperties(address bluetooth.DeviceAddress) (bluetooth.DeviceData, er
 	argDeviceID := newDeviceID(address)
 	argDeviceNative := newDeviceNative()
 
-	_hbcDeviceGetProperties.Call(libErr.getReturnPtr(), &argDeviceID, &argDeviceNative, libErr.getHbErrorPtr())
-	if err := libErr.getError(); err != nil {
+	ret := _hbcDeviceGetProperties.Call(argDeviceID, argDeviceNative, libErr.getHbErrorPtr())
+	if err := libErr.getError(ret); err != nil {
 		var device bluetooth.DeviceData
 
 		return device, err
 	}
-	defer deviceFree(&argDeviceNative)
+	defer _hbcDeviceFree.Call(argDeviceNative)
 
 	return argDeviceNative.ToDeviceData(), nil
 }
 
 // DeviceConnect connects a device on the associated adapter.
 func DeviceConnect(address bluetooth.DeviceAddress) error {
-	return deviceOperation(address, _hbcDeviceConnect)
+	libErr := newLibError()
+
+	argDeviceID := newDeviceID(address)
+	ret := _hbcDeviceConnect.Call(argDeviceID, libErr.getHbErrorPtr())
+
+	return libErr.getError(ret)
 }
 
 // DeviceDisconnect disconnects a device from the associated adapter.
 func DeviceDisconnect(address bluetooth.DeviceAddress) error {
-	return deviceOperation(address, _hbcDeviceDisconnect)
+	libErr := newLibError()
+
+	argDeviceID := newDeviceID(address)
+	ret := _hbcDeviceDisconnect.Call(argDeviceID, libErr.getHbErrorPtr())
+
+	return libErr.getError(ret)
 }
 
 // DevicePair pairs a device on the associated adapter.
 func DevicePair(address bluetooth.DeviceAddress) error {
-	var timeout int32
-	return deviceOperation(address, _hbcDevicePair, &timeout)
+	libErr := newLibError()
+
+	argDeviceID := newDeviceID(address)
+	ret := _hbcDevicePair.Call(argDeviceID, 0, libErr.getHbErrorPtr())
+
+	return libErr.getError(ret)
 }
 
 // DevicePairCancel cancels a pairing request for the device.
 func DevicePairCancel(address bluetooth.DeviceAddress) error {
-	return deviceOperation(address, _hbcDevicePairCancel)
+	libErr := newLibError()
+
+	argDeviceID := newDeviceID(address)
+	ret := _hbcDevicePairCancel.Call(argDeviceID, libErr.getHbErrorPtr())
+
+	return libErr.getError(ret)
 }
 
 // DeviceRemove removes a device from the associated adapter.
 func DeviceRemove(address bluetooth.DeviceAddress) error {
-	return deviceOperation(address, _hbcDeviceRemove)
-}
-
-func deviceOperation(address bluetooth.DeviceAddress, opFun ffi.Fun, param ...any) error {
 	libErr := newLibError()
 
 	argDeviceID := newDeviceID(address)
+	ret := _hbcDeviceRemove.Call(argDeviceID, libErr.getHbErrorPtr())
 
-	if param == nil {
-		opFun.Call(libErr.getReturnPtr(), &argDeviceID, libErr.getHbErrorPtr())
-		return libErr.getError()
-	}
-
-	opFun.Call(libErr.getReturnPtr(), &argDeviceID, param[0], libErr.getHbErrorPtr())
-
-	return libErr.getError()
-}
-
-func deviceFree(deviceData **deviceNative) {
-	_hbcDeviceFree.Call(nil, deviceData)
+	return libErr.getError(ret)
 }
 
 var (
-	_hbcDeviceGetProperties ffi.Fun
-	_hbcDeviceFree          ffi.Fun
-	_hbcDeviceIteratorFree  ffi.Fun
+	_hbcDeviceGetProperties interopFunc[func(*deviceIDNative, *deviceNative, **hbError) hbStatus]
+	_hbcDeviceFree          interopFunc[func(*deviceNative)]
+	_hbcDeviceIteratorFree  interopFunc[func(*nativeArray[deviceNative])]
+	_hbcDevicePair          interopFunc[func(*deviceIDNative, int32, **hbError) hbStatus]
 
-	_hbcDeviceConnect, _hbcDeviceDisconnect, _hbcDevicePair, _hbcDevicePairCancel, _hbcDeviceRemove ffi.Fun
+	_hbcDeviceConnect, _hbcDeviceDisconnect, _hbcDevicePairCancel, _hbcDeviceRemove interopFunc[func(*deviceIDNative, **hbError) hbStatus]
 )
 
 func getDeviceFunHandles() []funHandle {
 	return []funHandle{
-		{
-			&_hbcDeviceGetProperties, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_get_device", &fnRetType, &ffi.TypePointer, &ffi.TypePointer, &fnErrType)
-			},
-		},
-		{
-			&_hbcDeviceFree, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_device_free", &fnRetType, &ffi.TypePointer)
-			},
-		},
-		{
-			&_hbcDeviceIteratorFree, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_device_iterator_free", &fnRetType, &ffi.TypePointer)
-			},
-		},
-		{
-			&_hbcDeviceConnect, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_device_connect", &fnRetType, &ffi.TypePointer, &fnErrType)
-			},
-		},
-		{
-			&_hbcDeviceDisconnect, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_device_disconnect", &fnRetType, &ffi.TypePointer, &fnErrType)
-			},
-		},
-		{
-			&_hbcDevicePair, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_device_pair", &fnRetType, &ffi.TypePointer, &ffi.TypeSint32, &fnErrType)
-			},
-		},
-		{
-			&_hbcDevicePairCancel, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_device_pair_cancel", &fnRetType, &ffi.TypePointer, &fnErrType)
-			},
-		},
-		{
-			&_hbcDeviceRemove, func(handle ffi.Lib, fun *ffi.Fun, err *error) {
-				*fun, *err = handle.Prep("hbc_device_remove", &fnRetType, &ffi.TypePointer, &fnErrType)
-			},
-		},
+		newInteropFunc("hbc_get_device", &_hbcDeviceGetProperties, func(id *deviceIDNative, data *deviceNative, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcDeviceGetProperties.funAddr(), uintptr(unsafe.Pointer(id)), uintptr(unsafe.Pointer(data)), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(id)
+			runtime.KeepAlive(data)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hbc_device_free", &_hbcDeviceFree, func(data *deviceNative) {
+			_, _, _ = purego.SyscallN(_hbcDeviceFree.funAddr(), uintptr(unsafe.Pointer(data)))
+			runtime.KeepAlive(data)
+		}),
+		newInteropFunc("hbc_device_iterator_free", &_hbcDeviceIteratorFree, func(iterator *nativeArray[deviceNative]) {
+			_, _, _ = purego.SyscallN(_hbcDeviceIteratorFree.funAddr(), uintptr(unsafe.Pointer(iterator)))
+			runtime.KeepAlive(iterator)
+		}),
+		newInteropFunc("hbc_device_connect", &_hbcDeviceConnect, func(id *deviceIDNative, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcDeviceConnect.funAddr(), uintptr(unsafe.Pointer(id)), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(id)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hbc_device_disconnect", &_hbcDeviceDisconnect, func(id *deviceIDNative, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcDeviceDisconnect.funAddr(), uintptr(unsafe.Pointer(id)), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(id)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hbc_device_pair", &_hbcDevicePair, func(id *deviceIDNative, timeout int32, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcDevicePair.funAddr(), uintptr(unsafe.Pointer(id)), uintptr(timeout), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(id)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hbc_device_pair_cancel", &_hbcDevicePairCancel, func(id *deviceIDNative, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcDevicePairCancel.funAddr(), uintptr(unsafe.Pointer(id)), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(id)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
+		newInteropFunc("hbc_device_remove", &_hbcDeviceRemove, func(id *deviceIDNative, hberr **hbError) hbStatus {
+			_r0, _, _ := purego.SyscallN(_hbcDeviceRemove.funAddr(), uintptr(unsafe.Pointer(id)), uintptr(unsafe.Pointer(hberr)))
+			ret := hbStatus(_r0)
+			runtime.KeepAlive(id)
+			runtime.KeepAlive(hberr)
+			return ret
+		}),
 	}
 }
