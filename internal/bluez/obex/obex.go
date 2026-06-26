@@ -20,6 +20,7 @@ import (
 type Obex struct {
 	SessionBus *dbus.Conn
 	Key        bluetooth.DeviceAddress
+	IsEnabled  bool
 }
 
 // ObexManager holds an OBEX session and agent.
@@ -35,9 +36,9 @@ type ObexManager struct {
 //revive:enable
 
 // NewManager returns a new ObexManager.
-func NewManager(SessionBus *dbus.Conn) *ObexManager {
+func NewManager(SessionBus *dbus.Conn, IsEnabled bool) *ObexManager {
 	return &ObexManager{
-		nil, false, Obex{SessionBus: SessionBus},
+		nil, false, Obex{SessionBus: SessionBus, IsEnabled: IsEnabled},
 	}
 }
 
@@ -59,11 +60,16 @@ type obexTransferProperties struct {
 func (o *ObexManager) Initialize(auth bluetooth.AuthorizeReceiveFile, authTimeout time.Duration) (ac.Features, *ac.Error) {
 	var capabilities ac.Features
 
-	if o.SessionBus == nil {
+	if !o.IsEnabled || o.SessionBus == nil {
+		errValue := errorkinds.ErrNotEnabled
+		if o.IsEnabled && o.SessionBus == nil {
+			errValue = errors.New("DBus session bus was not found")
+		}
+
 		return capabilities,
 			ac.NewError(
 				ac.FeatureSendFile|ac.FeatureReceiveFile,
-				errors.New("DBus session bus was not enabled"),
+				errValue,
 			)
 	}
 
@@ -114,7 +120,7 @@ func (o *ObexManager) Stop() error {
 // ObjectPush returns a function call interface to invoke device file transfer
 // related functions.
 func (o *Obex) ObjectPush() bluetooth.ObexObjectPush {
-	return &fileTransfer{Obex{SessionBus: o.SessionBus, Key: o.Key}}
+	return &fileTransfer{Obex: *o}
 }
 
 // watchObexSessionBus will register a signal and watch for events from the OBEX DBus interface.

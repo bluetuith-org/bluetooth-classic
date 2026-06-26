@@ -60,7 +60,9 @@ func (b *BluetoothLibrary) Start(authHandler bluetooth.SessionAuthorizer, cfg co
 	}
 
 	b.authorizer = authHandler
-	if err := lib.Initialize(authHandler, cfg); err != nil {
+	b.store = sstore.NewSessionStore()
+
+	if err := lib.Initialize(&b.store, authHandler, cfg); err != nil {
 		return nil, platform, fault.Wrap(
 			err,
 			fctx.With(context.Background(), "error_at", "init-lib"),
@@ -69,7 +71,6 @@ func (b *BluetoothLibrary) Start(authHandler bluetooth.SessionAuthorizer, cfg co
 		)
 	}
 
-	b.store = sstore.NewSessionStore()
 	if err := b.refreshStore(); err != nil {
 		return nil, platform, fault.Wrap(
 			err,
@@ -85,6 +86,9 @@ func (b *BluetoothLibrary) Start(authHandler bluetooth.SessionAuthorizer, cfg co
 	}
 
 	b.obexEnabled = cfg.EnableObexServices
+	if !cfg.EnableObexServices {
+		ce.Append(ac.NewError(ac.FeatureSendFile|ac.FeatureReceiveFile, errorkinds.ErrNotEnabled))
+	}
 
 	b.features = ac.NewFeatureSet(features, ce)
 	if b.features.Has(ac.FeatureSendFile, ac.FeatureReceiveFile) && cfg.EnableObexServices {

@@ -147,6 +147,9 @@ func (s *HaraltdSession) Start(authHandler bluetooth.SessionAuthorizer, cfg conf
 	}
 
 	s.obexEnabled = cfg.EnableObexServices
+	if !cfg.EnableObexServices {
+		ce.Append(ac.NewError(ac.FeatureSendFile|ac.FeatureReceiveFile, errorkinds.ErrNotSupported))
+	}
 
 	s.features = ac.NewFeatureSet(features, ce)
 	if s.features.Has(ac.FeatureSendFile, ac.FeatureReceiveFile) && cfg.EnableObexServices {

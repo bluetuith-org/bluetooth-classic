@@ -110,7 +110,7 @@ func (b *DbusSession) Start(
 		ac.FeatureMediaPlayer,
 	)
 
-	b.obexman = obex.NewManager(sessionBus)
+	b.obexman = obex.NewManager(sessionBus, cfg.EnableObexServices)
 	obexcap, cerr := b.obexman.Initialize(authHandler, cfg.AuthTimeout)
 	if cerr != nil {
 		ce.Append(cerr)
@@ -175,7 +175,7 @@ func (b *DbusSession) Device(address bluetooth.DeviceAddress) bluetooth.Device {
 
 // Obex returns a function call interface to invoke obex related functions.
 func (b *DbusSession) Obex(address bluetooth.DeviceAddress) bluetooth.Obex {
-	return &obex.Obex{SessionBus: b.sessionBus, Key: address}
+	return &obex.Obex{SessionBus: b.sessionBus, Key: address, IsEnabled: b.obexman.IsEnabled}
 }
 
 // Network returns a function call interface to invoke network related functions.

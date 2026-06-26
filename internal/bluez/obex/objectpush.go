@@ -301,7 +301,7 @@ func (o *fileTransfer) ResumeTransfer() error {
 
 // check checks whether the SessionBus was initialized.
 func (o *fileTransfer) check() error {
-	if o.SessionBus == nil {
+	if !o.IsEnabled || o.SessionBus == nil {
 		return fault.Wrap(
 			errorkinds.ErrObexInitSession,
 			fctx.With(

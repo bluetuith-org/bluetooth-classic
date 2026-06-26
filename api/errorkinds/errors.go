@@ -27,6 +27,7 @@ var (
 	ErrEventDataParse    = errors.New("error parsing event data")
 
 	ErrNotSupported = errors.New("this functionality is not supported")
+	ErrNotEnabled   = errors.New("this functionality is not enabled")
 )
 
 // GenericError represents a standard error message.
