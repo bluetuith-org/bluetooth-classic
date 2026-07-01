@@ -33,6 +33,7 @@ func (o *fileTransfer) CreateSession(ctx context.Context) error {
 
 	args := make(map[string]any, 1)
 	args["Target"] = "opp"
+	args["Source"] = o.Key.AssociatedAdapter.String()
 
 	session := o.callClientAsync(ctx, "CreateSession", o.Key.Address.String(), args)
 	select {
