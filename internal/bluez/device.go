@@ -405,7 +405,7 @@ func (d *device) convertAndStoreObjects(values map[string]dbus.Variant) (bluetoo
 	dbh.PathConverter.AddDeviceDbusPath(
 		dbh.DbusPathDevice,
 		d.path,
-		d.key,
+		device.DeviceAddress,
 	)
 	d.b.store.AddDevice(device.DeviceData)
 
