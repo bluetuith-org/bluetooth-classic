@@ -47,6 +47,9 @@ const (
 	MediaStopped     MediaStatus = "stopped"
 )
 
+// MediaEventData holds the media player event information.
+type MediaEventData MediaData
+
 // MediaData holds the media player information.
 type MediaData struct {
 	DeviceAddress

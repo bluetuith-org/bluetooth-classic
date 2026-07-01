@@ -74,7 +74,7 @@ type emptyUpdatedDataEvent struct{}
 // These types of events are usually published with the [EventActionUpdated] or [EventActionRemoved]
 // event actions.
 type UpdatedDataEvents interface {
-	emptyUpdatedDataEvent | AdapterEventData | DeviceEventData | ObjectPushEventData | MediaData
+	emptyUpdatedDataEvent | AdapterEventData | DeviceEventData | ObjectPushEventData | MediaEventData
 }
 
 // Event represents a general event.
@@ -202,8 +202,8 @@ func DeviceEvents() EventGroup[DeviceData, DeviceEventData] {
 }
 
 // MediaEvents returns an event interface to subscribe to media events.
-func MediaEvents() EventGroup[MediaData, MediaData] {
-	return EventGroup[MediaData, MediaData]{ID: EventMediaPlayer}
+func MediaEvents() EventGroup[MediaData, MediaEventData] {
+	return EventGroup[MediaData, MediaEventData]{ID: EventMediaPlayer}
 }
 
 // ObjectPushEvents returns an event interface to subscribe to file transfer events.

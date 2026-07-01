@@ -347,7 +347,7 @@ func (m *MediaPlayer) Properties() (bluetooth.MediaData, error) {
 			)
 	}
 
-	properties, err := m.ParseMap(propertyMap)
+	properties, err := m.ParseMap(propertyMap, m.Key, "")
 	if err != nil {
 		return bluetooth.MediaData{},
 			fault.Wrap(
@@ -367,7 +367,7 @@ func (m *MediaPlayer) Properties() (bluetooth.MediaData, error) {
 }
 
 // ParseMap parses a variant map of mediaplayer properties.
-func (m *MediaPlayer) ParseMap(values map[string]dbus.Variant) (bluetooth.MediaData, error) {
+func (m *MediaPlayer) ParseMap(values map[string]dbus.Variant, address bluetooth.DeviceAddress, signalPath dbus.ObjectPath) (bluetooth.MediaData, error) {
 	var props bluetooth.MediaData
 
 	track := bluetooth.TrackData{}
@@ -387,6 +387,32 @@ func (m *MediaPlayer) ParseMap(values map[string]dbus.Variant) (bluetooth.MediaD
 
 	if err := dbh.DecodeVariantMap(values, &props); err != nil {
 		return bluetooth.MediaData{}, err
+	}
+
+	if !address.IsNil() {
+		props.DeviceAddress = address
+	}
+
+	if address.IsNil() && signalPath != "" {
+		if devPath, ok := dbh.GetDevicePathFromSignal(signalPath); ok {
+			addr, found := dbh.PathConverter.DeviceAddress(dbh.DbusPathDevice, devPath)
+			if found {
+				props.DeviceAddress = addr
+			}
+		}
+	}
+
+	if props.IsNil() {
+		path, found := values["Device"]
+		if found {
+			devPath, ok := path.Value().(dbus.ObjectPath)
+			if ok {
+				addr, exists := dbh.PathConverter.DeviceAddress(dbh.DbusPathDevice, devPath)
+				if exists {
+					props.DeviceAddress = addr
+				}
+			}
+		}
 	}
 
 	return props, nil

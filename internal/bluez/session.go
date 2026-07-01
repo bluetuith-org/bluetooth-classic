@@ -5,7 +5,6 @@ package bluez
 import (
 	"context"
 	"maps"
-	"path/filepath"
 
 	"github.com/Southclaws/fault"
 	"github.com/Southclaws/fault/fctx"
@@ -254,6 +253,8 @@ func (b *DbusSession) watchBluezSystemBus() {
 //
 //gocyclo:ignore
 func (b *DbusSession) parseSignalData(signal *dbus.Signal) {
+	nilDeviceAddress := bluetooth.DeviceAddress{}
+
 	switch signal.Name {
 	case dbh.DbusSignalPropertyChangedIface:
 		if signal.Body != nil && len(signal.Body) < 2 {
@@ -278,20 +279,7 @@ func (b *DbusSession) parseSignalData(signal *dbus.Signal) {
 			dbh.PublishDeviceUpdateEvent(&b.store, signal, propertyMap)
 
 		case dbh.BluezMediaPlayerIface:
-			devicePath := dbus.ObjectPath(filepath.Dir(string(signal.Path)))
-
-			key, ok := dbh.PathConverter.DeviceAddress(dbh.DbusPathDevice, devicePath)
-			if !ok {
-				dbh.PublishSignalError(
-					errorkinds.ErrDeviceNotFound, signal,
-					"Bluez event handler error",
-					"error_at", "pchanged-mediaplayer-address",
-				)
-
-				return
-			}
-
-			properties, err := b.mediaPlayerInternal().ParseMap(propertyMap)
+			properties, err := b.mediaPlayerInternal().ParseMap(propertyMap, nilDeviceAddress, signal.Path)
 			if err != nil {
 				dbh.PublishSignalError(
 					err, signal,
@@ -302,9 +290,7 @@ func (b *DbusSession) parseSignalData(signal *dbus.Signal) {
 				return
 			}
 
-			properties.DeviceAddress = key
-
-			bluetooth.MediaEvents().PublishUpdated(properties)
+			bluetooth.MediaEvents().PublishUpdated(bluetooth.MediaEventData(properties))
 
 		case dbh.BluezBatteryIface:
 			percentage := -1
@@ -396,6 +382,20 @@ func (b *DbusSession) parseSignalData(signal *dbus.Signal) {
 
 				bluetooth.DeviceEvents().PublishAdded(device)
 
+			case dbh.BluezMediaPlayerIface:
+				properties, err := b.mediaPlayerInternal().ParseMap(mergedPropertyMap, nilDeviceAddress, signal.Path)
+				if err != nil {
+					dbh.PublishSignalError(
+						err, signal,
+						"Bluez event handler error",
+						"error_at", "pchanged-mediaplayer-address",
+					)
+
+					return
+				}
+
+				bluetooth.MediaEvents().PublishAdded(properties)
+
 			case dbh.BluezBatteryIface:
 				percentage := -1
 
@@ -477,6 +477,29 @@ func (b *DbusSession) parseSignalData(signal *dbus.Signal) {
 				dbh.PathConverter.RemoveDeviceDbusPath(dbh.DbusPathDevice, objectPath)
 
 				bluetooth.DeviceEvents().PublishRemoved(device)
+
+			case dbh.BluezMediaPlayerIface:
+				devicePath, ok := dbh.GetDevicePathFromSignal(objectPath)
+				if !ok {
+					dbh.PublishSignalError(
+						errorkinds.ErrDeviceNotFound, signal,
+						"Bluez event handler error",
+						"error_at", "premoved-media-player-devpath",
+					)
+
+					return
+				}
+
+				key, found := dbh.PathConverter.DeviceAddress(dbh.DbusPathDevice, devicePath)
+				if !found {
+					dbh.PublishSignalError(
+						errorkinds.ErrDeviceNotFound, signal,
+						"Bluez event handler error",
+						"error_at", "premoved-media-player",
+					)
+				}
+
+				bluetooth.MediaEvents().PublishRemoved(bluetooth.MediaEventData{DeviceAddress: key})
 			}
 		}
 	}
