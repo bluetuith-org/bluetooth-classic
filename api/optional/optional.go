@@ -1,7 +1,9 @@
 package optional
 
 import (
+	"bytes"
 	"cmp"
+	"encoding/json"
 	"fmt"
 	"strconv"
 )
@@ -45,12 +47,21 @@ func (o Optional[T]) IsZero() bool {
 
 // MarshalJSON implements the json.Marshaler interface.
 func (o Optional[T]) MarshalJSON() (data []byte, err error) {
-	return o.MarshalText()
+	return json.Marshal(o.value)
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
 func (o *Optional[T]) UnmarshalJSON(data []byte) error {
-	return o.UnmarshalText(data)
+	if bytes.Equal(bytes.TrimSpace(data), []byte("null")) {
+		return fmt.Errorf("unmarshalling null into an optional value is not supported")
+	}
+
+	var value T
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	o.Set(value)
+	return nil
 }
 
 // MarshalText implements the encoding.TextMarshaler interface.
